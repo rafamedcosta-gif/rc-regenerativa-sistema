@@ -1568,9 +1568,7 @@ function mostrarTelaLogin(lockTitle, lockSubtitle, lockFields, lockError, lockRe
   lockFields.innerHTML = `
     <div class="field"><input type="email" id="lockEmail" placeholder="Seu e-mail" autocomplete="email"></div>
     <div class="field"><input type="password" id="lockPass" placeholder="Senha" autocomplete="current-password"></div>`;
-  lockReset.innerHTML = `
-    <a href="#" id="lockCriarConta" style="color:var(--copper-light); font-weight:600; font-size:.8rem;">Não tenho acesso — solicitar cadastro</a><br><br>
-    <a href="#" id="lockEsqueciSenha" style="color:var(--cream-dim); font-size:.72rem;">Esqueci minha senha</a>`;
+  lockReset.innerHTML = `<a href="#" id="lockEsqueciSenha" style="color:var(--cream-dim); font-size:.72rem;">Esqueci minha senha</a>`;
 
   document.getElementById('lockSubmit').onclick = async ()=>{
     const email = document.getElementById('lockEmail').value.trim();
@@ -1582,7 +1580,7 @@ function mostrarTelaLogin(lockTitle, lockSubtitle, lockFields, lockError, lockRe
     const perfil = await carregarPerfil(data.user.id);
     if(!perfil || perfil.status !== 'aprovado'){
       await supa.auth.signOut();
-      lockError.textContent = perfil?.status==='pendente'? 'Cadastro aguardando aprovação do administrador.' : 'Conta não encontrada ou não aprovada.';
+      lockError.textContent = 'Acesso não autorizado. Contate o administrador.';
       lockError.style.display='block'; document.getElementById('lockSubmit').textContent='Entrar'; return;
     }
     USUARIO_LOGADO = { ...perfil, email: data.user.email };
@@ -1590,66 +1588,19 @@ function mostrarTelaLogin(lockTitle, lockSubtitle, lockFields, lockError, lockRe
     renderTabsForUser();
   };
 
-  document.getElementById('lockCriarConta')?.addEventListener('click', (e)=>{
-    e.preventDefault(); mostrarTelaCadastro(lockTitle, lockSubtitle, lockFields, lockError, lockReset);
-  });
   document.getElementById('lockEsqueciSenha')?.addEventListener('click', async (e)=>{
     e.preventDefault();
-    const email = document.getElementById('lockEmail')?.value.trim();
-    if(!email){ lockError.textContent='Digite seu e-mail acima antes de recuperar.'; lockError.style.display='block'; return; }
-    const { error } = await supa.auth.resetPasswordForEmail(email);
-    if(error){ lockError.textContent='Erro ao enviar e-mail de recuperação.'; lockError.style.display='block'; }
-    else { lockError.style.display='none'; lockReset.innerHTML='<span style="color:var(--ok);">✔ E-mail de recuperação enviado! Verifique sua caixa.</span>'; }
+    const { error } = await supa.auth.resetPasswordForEmail('rafa.med.costa@gmail.com', {
+      redirectTo: 'https://rafamedcosta-gif.github.io/rc-regenerativa-sistema'
+    });
+    if(error){ lockError.textContent='Erro ao enviar e-mail.'; lockError.style.display='block'; }
+    else { lockReset.innerHTML='<span style="color:var(--ok);">✔ Link de redefinição enviado para rafa.med.costa@gmail.com</span>'; }
   });
   document.getElementById('lockEmail')?.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockPass').focus(); });
   document.getElementById('lockPass')?.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockSubmit').click(); });
 }
 
-function mostrarTelaCadastro(lockTitle, lockSubtitle, lockFields, lockError, lockReset){
-  lockTitle.textContent = 'Solicitar acesso';
-  lockSubtitle.textContent = 'Crie seu acesso — após o cadastro, o Rafael ou a Raquel aprovam seu acesso pelo sistema.';
-  lockError.style.display = 'none';
-  document.getElementById('lockSubmit').textContent = 'Enviar solicitação';
-  lockFields.innerHTML = `
-    <div class="field"><input type="text" id="regNome" placeholder="Seu nome completo"></div>
-    <div class="field"><input type="email" id="regEmail" placeholder="Seu e-mail"></div>
-    <div class="field"><input type="password" id="regPass1" placeholder="Crie uma senha (mín. 6 caracteres)"></div>
-    <div class="field"><input type="password" id="regPass2" placeholder="Confirme a senha"></div>`;
-  lockReset.innerHTML = `<a href="#" id="voltarLogin" style="color:var(--cream-dim);">← Voltar para o login</a>`;
-
-  document.getElementById('lockSubmit').onclick = async ()=>{
-    const nome = document.getElementById('regNome').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
-    const p1 = document.getElementById('regPass1').value;
-    const p2 = document.getElementById('regPass2').value;
-    if(!nome || !email){ lockError.textContent='Preencha nome e e-mail.'; lockError.style.display='block'; return; }
-    if(!p1 || p1.length<6){ lockError.textContent='A senha precisa ter pelo menos 6 caracteres.'; lockError.style.display='block'; return; }
-    if(p1!==p2){ lockError.textContent='As senhas não coincidem.'; lockError.style.display='block'; return; }
-    document.getElementById('lockSubmit').textContent = 'Enviando...';
-    const { data, error } = await supa.auth.signUp({ email, password: p1, options:{ data:{ nome } } });
-    if(error){ lockError.textContent=error.message||'Erro ao criar conta.'; lockError.style.display='block'; document.getElementById('lockSubmit').textContent='Enviar solicitação'; return; }
-    // perfil criado com status 'pendente' via trigger no Supabase (ou inserido aqui)
-    if(data.user){
-      await supa.from('perfis').upsert({ id:data.user.id, nome, papel:'paciente', status:'pendente' });
-    }
-    // notifica admin via WhatsApp (fallback sempre disponível)
-    const msg = `🔐 Nova solicitação de acesso ao sistema RC Estética!\n\nNome: ${nome}\nE-mail: ${email}\n\nAprovação: entre no sistema → aba Usuários → Solicitações pendentes.`;
-    lockTitle.textContent = 'Solicitação enviada!';
-    lockSubtitle.textContent = 'Agora avise o Rafael ou a Raquel para aprovarem. Use o botão abaixo:';
-    lockFields.innerHTML = `
-      <a class="btn" href="https://wa.me/5511981126897?text=${encodeURIComponent(msg)}" target="_blank" style="display:block; text-align:center; text-decoration:none; margin-bottom:10px;">📲 Avisar pelo WhatsApp</a>
-      <p class="sub" style="margin-bottom:6px;">Ou copie o texto abaixo e envie por outro canal:</p>
-      <textarea readonly rows="5" style="font-size:.75rem;">${msg}</textarea>`;
-    document.getElementById('lockSubmit').style.display='none';
-    lockReset.innerHTML=`<a href="#" id="voltarLogin2" style="color:var(--cream-dim);">← Voltar para o login</a>`;
-    document.getElementById('voltarLogin2').addEventListener('click', (e)=>{
-      e.preventDefault(); document.getElementById('lockSubmit').style.display=''; location.reload();
-    });
-  };
-  document.getElementById('voltarLogin').addEventListener('click', (e)=>{
-    e.preventDefault(); location.reload();
-  });
-}
+function mostrarTelaCadastro(){} // removida — cadastro só pelo admin dentro do sistema
 
 /* ============ INIT ============ */
 (async function init(){
