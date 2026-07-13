@@ -124,7 +124,6 @@
   .kpi-row .delta{font-size:.75rem;}
   .delta.up{color:var(--ok);} .delta.down{color:var(--bad);}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -1316,153 +1315,101 @@ const MODULOS_DISPONIVEIS = [
 function nomeModulo(id){ const m = MODULOS_DISPONIVEIS.find(x=>x.id===id); return m? m.nome : id; }
 
 function viewUsuarios(){
-  if(!ehAdmin()) return `<div class="empty"><b>Acesso restrito</b>Só o administrador pode gerenciar usuários.</div>`;
+  if(!ehAdmin()){
+    return `<div class="empty"><b>Acesso restrito</b>Só o administrador pode gerenciar usuários.</div>`;
+  }
   return `
   <div class="section-title">
-    <div><h2>Usuários</h2><p>Gerencie quem tem acesso ao sistema e quais módulos cada pessoa pode ver.</p></div>
-    <button class="btn" onclick="abrirCriarUsuario()">+ Novo usuário</button>
+    <div><h2>Usuários</h2><p>Cadastre a equipe, defina a senha de cada um e escolha quais módulos cada pessoa pode acessar.</p></div>
+    <button class="btn" onclick="abrirNovoUsuario()">+ Novo usuário</button>
   </div>
-  <div class="card" id="cardSolicitacoes"><div class="sub">Carregando solicitações...</div></div>
-  <div class="card" style="margin-top:16px;" id="cardUsuarios"><div class="sub">Carregando usuários...</div></div>`;
-}
-function wireUsuarios(){
-  if(!ehAdmin()) return;
-  carregarDadosUsuarios();
-}
-function abrirCriarUsuario(){
-  const checks = MODULOS_DISPONIVEIS.map(m=>`
-    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:.85rem;color:var(--cream);margin-bottom:6px;">
-      <input type="checkbox" value="${m.id}" class="modChkNovo" style="width:auto;"> ${m.nome}
-    </label>`).join('');
-  openModal(`<h3>Novo usuário</h3>
-    <div class="field"><label>Nome completo</label><input id="mUsrNome" placeholder="ex.: Raquel Casarini"></div>
-    <div class="field"><label>E-mail</label><input type="email" id="mUsrEmail" placeholder="ex.: raquel@email.com"></div>
-    <div class="field"><label>Senha inicial</label><input type="password" id="mUsrSenha"></div>
-    <div class="field"><label>Papel</label>
-      <select id="mUsrPapel">
-        <option value="paciente">Usuário comum</option>
-        <option value="admin">Administrador (acesso total)</option>
-      </select>
-    </div>
-    <div class="field"><label>Módulos permitidos (para usuário comum)</label>
-      <div style="max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px;">${checks}</div>
-    </div>
-    <div id="mUsrErro" style="color:var(--bad);font-size:.8rem;display:none;margin-bottom:8px;"></div>
-    <div class="modal-actions">
-      <button class="btn ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn" onclick="criarUsuarioSupabase()">Criar usuário</button>
-    </div>`);
-}
-async function criarUsuarioSupabase(){
-  if(!supa) return;
-  const nome = document.getElementById('mUsrNome').value.trim();
-  const email = document.getElementById('mUsrEmail').value.trim();
-  const senha = document.getElementById('mUsrSenha').value;
-  const papel = document.getElementById('mUsrPapel').value;
-  const modulos = Array.from(document.querySelectorAll('.modChkNovo:checked')).map(c=>c.value);
-  const erro = document.getElementById('mUsrErro');
-  if(!nome||!email){ erro.textContent='Preencha nome e e-mail.'; erro.style.display='block'; return; }
-  if(!senha||senha.length<6){ erro.textContent='A senha precisa ter pelo menos 6 caracteres.'; erro.style.display='block'; return; }
-  document.querySelector('#mUsrErro').previousElementSibling.querySelector('button:last-child').textContent='Criando...';
-  // cria o usuário no Supabase Auth usando Admin API via service role não disponível no client
-  // alternativa: criar via signUp e depois aprovar
-  const { data, error } = await supa.auth.signUp({
-    email, password: senha,
-    options: { data: { nome } }
-  });
-  if(error){ erro.textContent=error.message||'Erro ao criar usuário.'; erro.style.display='block'; return; }
-  if(data.user){
-    const { error: perfilErr } = await supa.from('perfis').upsert({
-      id: data.user.id, nome, papel, status:'aprovado',
-      modulos: papel==='admin' ? [] : modulos
-    });
-    if(perfilErr){ erro.textContent='Usuário criado mas erro ao salvar perfil: '+perfilErr.message; erro.style.display='block'; return; }
-  }
-  closeModal();
-  toast(`Usuário "${nome}" criado com sucesso`);
-  carregarDadosUsuarios();
-}
-async function carregarDadosUsuarios(){
-  if(!supa) return;
-  const { data: pendentes } = await supa.from('perfis').select('*').eq('status','pendente');
-  const { data: aprovados } = await supa.from('perfis').select('*').eq('status','aprovado');
-  const cardSol = document.getElementById('cardSolicitacoes');
-  const cardUsr = document.getElementById('cardUsuarios');
-  if(!cardSol || !cardUsr) return;
-
-  // solicitações pendentes
-  if(pendentes && pendentes.length){
-    cardSol.innerHTML = `<h3 style="color:var(--warn);">Solicitações pendentes (${pendentes.length})</h3>`
-      + pendentes.map(p=>`
-        <div style="padding:10px 0; border-bottom:1px solid var(--line);">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span><b>${p.nome||'—'}</b> <span class="sub">· ${p.id}</span></span>
-            <div style="display:flex; gap:6px;">
-              <button class="btn small" onclick="aprovarUsuario('${p.id}')">✔ Aprovar</button>
-              <button class="btn ghost small" onclick="recusarUsuario('${p.id}')">✕ Recusar</button>
-            </div>
+  <div class="card">
+    <h3>Usuários cadastrados</h3>
+    ${DB.usuarios.map(u=>`
+      <div style="padding:12px 0; border-bottom:1px solid var(--line);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span>👤 <b>${u.nome||u.usuario}</b> <span class="sub">— login: ${u.usuario} ${u.role==='admin'?'· <b style="color:var(--copper-light)">ADMINISTRADOR</b>':''}</span></span>
+          <div style="display:flex; gap:6px;">
+            ${u.role!=='admin'? `<button class="btn ghost small" onclick="abrirPermissoes('${u.usuario}')">Permissões</button>` : ''}
+            <button class="btn ghost small" onclick="abrirTrocarSenha('${u.usuario}')">Trocar senha</button>
+            ${u.role!=='admin'? `<button class="btn ghost small" onclick="removerUsuario('${u.usuario}')">Remover</button>` : ''}
           </div>
-        </div>`).join('');
-  } else {
-    cardSol.innerHTML = `<h3>Solicitações pendentes</h3><div class="empty" style="padding:16px 0;">Nenhuma solicitação aguardando aprovação.</div>`;
-  }
+        </div>
+        ${u.role!=='admin'? `<div class="sub" style="margin-top:6px;">Acesso a: ${(u.modulos&&u.modulos.length)? u.modulos.map(nomeModulo).join(', ') : 'nenhum módulo ainda — clique em Permissões'}</div>` : `<div class="sub" style="margin-top:6px;">Acesso total a todos os módulos.</div>`}
+      </div>`).join('')}
+  </div>`;
+}
+function wireUsuarios(){}
 
-  // usuários aprovados
-  const adminBadge = '<b style="color:var(--copper-light)">ADMIN</b>';
-  const aprovados_html = aprovados && aprovados.length ? `<h3>Usuários ativos</h3>`
-      + aprovados.map(u=>`
-        <div style="padding:12px 0; border-bottom:1px solid var(--line);">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <span>👤 <b>${u.nome||u.id}</b>
-              <span class="sub"> · ${u.papel==='admin'? adminBadge :'usuário'}</span>
-            </span>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              ${u.papel!=='admin'?`<button class="btn ghost small" onclick="abrirPermissoes('${u.id}','${u.nome||u.id}')">Permissões</button>`:''}
-              ${u.id!==USUARIO_LOGADO?.id?`<button class="btn ghost small" onclick="desativarUsuario('${u.id}')">Remover</button>`:''}
-            </div>
-          </div>
-          ${u.papel!=='admin'? `<div class="sub" style="margin-top:4px;">Módulos: ${(u.modulos&&u.modulos.length)?u.modulos.join(', '):'nenhum definido'}</div>`:''}
-        </div>`).join('')
-    : `<h3>Usuários ativos</h3><div class="empty" style="padding:16px 0;">Nenhum usuário aprovado ainda.</div>`;
-  cardUsr.innerHTML = aprovados_html;
-}
-async function aprovarUsuario(id){
-  if(!supa) return;
-  await supa.from('perfis').update({ status:'aprovado' }).eq('id', id);
-  toast('Usuário aprovado'); carregarDadosUsuarios();
-}
-async function recusarUsuario(id){
-  if(!confirm('Recusar e remover esta solicitação?')) return;
-  if(!supa) return;
-  await supa.from('perfis').update({ status:'recusado' }).eq('id', id);
-  toast('Solicitação recusada'); carregarDadosUsuarios();
-}
-async function desativarUsuario(id){
-  if(!confirm('Remover acesso deste usuário?')) return;
-  if(!supa) return;
-  await supa.from('perfis').update({ status:'recusado' }).eq('id', id);
-  toast('Acesso removido'); carregarDadosUsuarios();
-}
-function abrirPermissoes(userId, nome){
-  const perfil = {}; // carrega modulos do usuario se existir
+function abrirNovoUsuario(){
   const checks = MODULOS_DISPONIVEIS.map(m=>`
     <label style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:0; font-size:.85rem; color:var(--cream); margin-bottom:6px;">
-      <input type="checkbox" value="${m.id}" class="permChk" style="width:auto;"> ${m.nome}
+      <input type="checkbox" value="${m.id}" class="modChk" style="width:auto;"> ${m.nome}
     </label>`).join('');
-  openModal(`<h3>Permissões — ${nome}</h3>
-    <div class="field"><label>Módulos liberados para este usuário</label>
-      <div style="max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:10px;">${checks}</div>
-    </div>
-    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button>
-    <button class="btn" onclick="salvarPermissoesSupabase('${userId}')">Salvar</button></div>`);
+  openModal(`<h3>Novo usuário</h3>
+    <div class="field"><label>Nome completo</label><input id="mUsrNome" placeholder="ex.: Lucas Silva"></div>
+    <div class="field"><label>Usuário de login</label><input id="mUsrNovo" placeholder="ex.: lucas"></div>
+    <div class="field"><label>Senha</label><input type="password" id="mUsrSenha1"></div>
+    <div class="field"><label>Confirme a senha</label><input type="password" id="mUsrSenha2"></div>
+    <div class="field"><label>Módulos que este usuário pode acessar</label><div style="max-height:180px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:10px;">${checks}</div></div>
+    <div id="mUsrErro" style="color:var(--bad); font-size:.8rem; display:none; margin-bottom:8px;"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarNovoUsuario()">Cadastrar</button></div>`);
 }
-async function salvarPermissoesSupabase(userId){
-  if(!supa) return;
-  const modulos = Array.from(document.querySelectorAll('.permChk:checked')).map(c=>c.value);
-  await supa.from('perfis').update({ modulos }).eq('id', userId);
-  closeModal(); toast('Permissões salvas'); carregarDadosUsuarios();
+async function salvarNovoUsuario(){
+  const nome = document.getElementById('mUsrNome').value.trim();
+  const u = document.getElementById('mUsrNovo').value.trim();
+  const p1 = document.getElementById('mUsrSenha1').value;
+  const p2 = document.getElementById('mUsrSenha2').value;
+  const erro = document.getElementById('mUsrErro');
+  const modulos = Array.from(document.querySelectorAll('.modChk:checked')).map(c=>c.value);
+  if(!nome || !u){ erro.textContent='Preencha nome e usuário.'; erro.style.display='block'; return; }
+  if(DB.usuarios.find(x=>x.usuario.toLowerCase()===u.toLowerCase())){ erro.textContent='Esse usuário já existe.'; erro.style.display='block'; return; }
+  if(!p1 || p1.length<4){ erro.textContent='A senha precisa ter pelo menos 4 caracteres.'; erro.style.display='block'; return; }
+  if(p1!==p2){ erro.textContent='As senhas não coincidem.'; erro.style.display='block'; return; }
+  DB.usuarios.push({ usuario:u, nome, hash: await hashText(p1), role:'user', modulos });
+  await sSet('usuarios', DB.usuarios);
+  closeModal(); render('usuarios'); toast(`Usuário "${nome}" cadastrado`);
 }
 
+function abrirPermissoes(usuario){
+  const conta = DB.usuarios.find(u=>u.usuario===usuario); if(!conta) return;
+  const checks = MODULOS_DISPONIVEIS.map(m=>`
+    <label style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:0; font-size:.85rem; color:var(--cream); margin-bottom:6px;">
+      <input type="checkbox" value="${m.id}" class="permChk" ${(conta.modulos||[]).includes(m.id)?'checked':''} style="width:auto;"> ${m.nome}
+    </label>`).join('');
+  openModal(`<h3>Permissões de ${conta.nome||conta.usuario}</h3>
+    <div class="field"><label>Marque os módulos que este usuário pode acessar</label><div style="max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:10px;">${checks}</div></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarPermissoes('${usuario}')">Salvar permissões</button></div>`);
+}
+async function salvarPermissoes(usuario){
+  const conta = DB.usuarios.find(u=>u.usuario===usuario); if(!conta) return;
+  conta.modulos = Array.from(document.querySelectorAll('.permChk:checked')).map(c=>c.value);
+  await sSet('usuarios', DB.usuarios);
+  closeModal(); render('usuarios'); toast('Permissões atualizadas');
+}
+function abrirTrocarSenha(usuario){
+  openModal(`<h3>Trocar senha de ${usuario}</h3>
+    <div class="field"><label>Nova senha</label><input type="password" id="mUsrSenhaNova"></div>
+    <div class="field"><label>Confirme a nova senha</label><input type="password" id="mUsrSenhaNova2"></div>
+    <div id="mUsrErro2" style="color:var(--bad); font-size:.8rem; display:none; margin-bottom:8px;"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="confirmarTrocaSenha('${usuario}')">Salvar nova senha</button></div>`);
+}
+async function confirmarTrocaSenha(usuario){
+  const p1 = document.getElementById('mUsrSenhaNova').value;
+  const p2 = document.getElementById('mUsrSenhaNova2').value;
+  const erro = document.getElementById('mUsrErro2');
+  if(!p1 || p1.length<4){ erro.textContent='A senha precisa ter pelo menos 4 caracteres.'; erro.style.display='block'; return; }
+  if(p1!==p2){ erro.textContent='As senhas não coincidem.'; erro.style.display='block'; return; }
+  const conta = DB.usuarios.find(x=>x.usuario===usuario);
+  if(conta){ conta.hash = await hashText(p1); await sSet('usuarios', DB.usuarios); }
+  closeModal(); toast('Senha atualizada');
+}
+async function removerUsuario(usuario){
+  if(!confirm(`Remover o acesso de "${usuario}"?`)) return;
+  DB.usuarios = DB.usuarios.filter(x=>x.usuario!==usuario);
+  await sSet('usuarios', DB.usuarios);
+  render('usuarios'); toast('Usuário removido');
+}
 async function salvarConfig(){
   DB.config.parcelaCartao = Number(document.getElementById('cfgCartao').value)||0;
   DB.config.marketing = Number(document.getElementById('cfgMarketing').value)||0;
@@ -1494,36 +1441,34 @@ function wireView(view){
   }
 }
 
-/* ============ SUPABASE — autenticação e dados reais ============ */
-const SUPA_URL = 'https://rsnwdedbwukkucoyhfkt.supabase.co';
-const SUPA_KEY = 'sb_publishable_1-5STkG49tYt7y9GX7ixxw_F0k_pSDH';
-const supa = window.supabase ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
+/* ============ ACESSO POR USUÁRIO E SENHA (máx. 2 administradores) ============ */
+async function hashText(text){
+  try{
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return 'plain:'+text; } // navegador muito antigo ou contexto não-seguro — fallback simples
+}
+let USUARIO_LOGADO = null; // { usuario, nome, role, modulos }
 
-let USUARIO_LOGADO = null; // perfil do supabase { id, nome, papel, modulos }
-
-function usuarioAtual(){ return USUARIO_LOGADO ? (USUARIO_LOGADO.nome || USUARIO_LOGADO.email || '') : ''; }
-function ehAdmin(){ return USUARIO_LOGADO && USUARIO_LOGADO.papel === 'admin'; }
+function unlockSession(conta){
+  USUARIO_LOGADO = conta;
+  try{ localStorage.setItem('rc_sessao', JSON.stringify({ usuario: conta.usuario })); }catch(e){}
+  document.getElementById('lockScreen').remove();
+}
+function usuarioAtual(){ return USUARIO_LOGADO ? (USUARIO_LOGADO.nome || USUARIO_LOGADO.usuario) : ''; }
+function ehAdmin(){ return USUARIO_LOGADO && USUARIO_LOGADO.role === 'admin'; }
 function podeVer(modulo){
   if(!USUARIO_LOGADO) return false;
-  if(ehAdmin()) return true;
+  if(USUARIO_LOGADO.role === 'admin') return true; // admin vê tudo
   return (USUARIO_LOGADO.modulos || []).includes(modulo);
 }
-function renderTabsForUser(){
-  document.querySelectorAll('#tabs button[data-view]').forEach(btn=>{
-    const modulo = btn.dataset.view;
-    if(modulo==='dashboard'){ btn.style.display=''; return; }
-    if(modulo==='usuarios'){ btn.style.display = ehAdmin()? '' : 'none'; return; }
-    btn.style.display = podeVer(modulo)? '' : 'none';
-  });
-}
 
-async function carregarPerfil(userId){
-  if(!supa) return null;
-  const { data } = await supa.from('perfis').select('*').eq('id', userId).single();
-  return data;
-}
-
+/* ============ ACESSO POR USUÁRIO E SENHA (com permissões por módulo) ============
+   1º acesso: cria o usuário administrador. Login: cada pessoa usa seu próprio usuário/senha.
+   O admin cadastra os demais usuários e escolhe quais módulos cada um pode ver. */
 async function setupLock(){
+  let usuarios = await sGet('usuarios') || [];
   const lockTitle = document.getElementById('lockTitle');
   const lockSubtitle = document.getElementById('lockSubtitle');
   const lockFields = document.getElementById('lockFields');
@@ -1531,84 +1476,87 @@ async function setupLock(){
   const lockReset = document.getElementById('lockReset');
   lockReset.innerHTML = '';
 
-  if(!supa){
-    lockTitle.textContent = 'Erro de configuração';
-    lockSubtitle.textContent = 'O SDK do Supabase não carregou. Verifique a conexão e recarregue.';
-    return;
-  }
-
-  // verifica se já tem sessão ativa
-  const { data:{ session } } = await supa.auth.getSession();
-  if(session){
-    const perfil = await carregarPerfil(session.user.id);
-    if(perfil && perfil.status === 'aprovado'){
-      USUARIO_LOGADO = { ...perfil, email: session.user.email };
-      document.getElementById('lockScreen').remove();
-      return;
-    } else if(perfil && perfil.status === 'pendente'){
-      lockTitle.textContent = 'Aguardando aprovação';
-      lockSubtitle.textContent = 'Seu cadastro está pendente de aprovação pelo administrador (Rafael ou Raquel). Aguarde o contato.';
-      lockFields.innerHTML = '';
-      document.getElementById('lockSubmit').style.display = 'none';
-      lockReset.innerHTML = `<a href="#" onclick="event.preventDefault(); supa.auth.signOut(); location.reload();" style="color:var(--cream-dim); font-size:.72rem;">Sair e tentar outro acesso</a>`;
-      return;
+  // tenta restaurar sessão salva desta aba
+  try{
+    const sess = JSON.parse(localStorage.getItem('rc_sessao')||'null');
+    if(sess && sess.usuario){
+      const conta = usuarios.find(u=>u.usuario===sess.usuario);
+      if(conta){ USUARIO_LOGADO = conta; document.getElementById('lockScreen').remove(); return; }
     }
-  }
+  }catch(e){}
 
-  // tela de login
-  mostrarTelaLogin(lockTitle, lockSubtitle, lockFields, lockError, lockReset);
-}
-
-function mostrarTelaLogin(lockTitle, lockSubtitle, lockFields, lockError, lockReset){
-  document.getElementById('lockSubmit').style.display = '';
-  document.getElementById('lockSubmit').textContent = 'Entrar';
-  lockTitle.textContent = 'Acesso restrito';
-  lockSubtitle.textContent = 'Digite seu e-mail e senha para entrar.';
-  lockError.style.display = 'none';
-  lockFields.innerHTML = `
-    <div class="field"><input type="email" id="lockEmail" placeholder="Seu e-mail" autocomplete="email"></div>
-    <div class="field"><input type="password" id="lockPass" placeholder="Senha" autocomplete="current-password"></div>`;
-  lockReset.innerHTML = `<a href="#" id="lockEsqueciSenha" style="color:var(--cream-dim); font-size:.72rem;">Esqueci minha senha</a>`;
-
-  document.getElementById('lockSubmit').onclick = async ()=>{
-    const email = document.getElementById('lockEmail').value.trim();
-    const pass = document.getElementById('lockPass').value;
-    if(!email || !pass){ lockError.textContent='Preencha e-mail e senha.'; lockError.style.display='block'; return; }
-    document.getElementById('lockSubmit').textContent = 'Entrando...';
-    const { data, error } = await supa.auth.signInWithPassword({ email, password: pass });
-    if(error){ lockError.textContent='E-mail ou senha incorretos.'; lockError.style.display='block'; document.getElementById('lockSubmit').textContent='Entrar'; return; }
-    const perfil = await carregarPerfil(data.user.id);
-    if(!perfil || perfil.status !== 'aprovado'){
-      await supa.auth.signOut();
-      lockError.textContent = 'Acesso não autorizado. Contate o administrador.';
-      lockError.style.display='block'; document.getElementById('lockSubmit').textContent='Entrar'; return;
-    }
-    USUARIO_LOGADO = { ...perfil, email: data.user.email };
-    document.getElementById('lockScreen').remove();
-    renderTabsForUser();
-  };
-
-  document.getElementById('lockEsqueciSenha')?.addEventListener('click', async (e)=>{
-    e.preventDefault();
-    const { error } = await supa.auth.resetPasswordForEmail('rafa.med.costa@gmail.com', {
-      redirectTo: 'https://rafamedcosta-gif.github.io/rc-regenerativa-sistema'
+  if(usuarios.length===0){
+    // primeiro acesso — cria o usuário ADMINISTRADOR
+    lockTitle.textContent = 'Criar administrador';
+    lockSubtitle.textContent = 'Primeiro acesso: crie o usuário administrador (você). Depois, você cadastra os demais.';
+    lockFields.innerHTML = `
+      <div class="field"><input type="text" id="lockNome" placeholder="Seu nome (ex.: Rafael Medeiros)"></div>
+      <div class="field"><input type="text" id="lockUser" placeholder="Usuário de login (ex.: rafael)"></div>
+      <div class="field"><input type="password" id="lockPass" placeholder="Crie uma senha"></div>
+      <div class="field"><input type="password" id="lockPass2" placeholder="Confirme a senha"></div>`;
+    document.getElementById('lockSubmit').textContent = 'Criar e entrar';
+    document.getElementById('lockSubmit').onclick = async ()=>{
+      const nome = document.getElementById('lockNome').value.trim();
+      const user = document.getElementById('lockUser').value.trim();
+      const p1 = document.getElementById('lockPass').value;
+      const p2 = document.getElementById('lockPass2').value;
+      if(!nome || !user){ lockError.textContent='Preencha nome e usuário.'; lockError.style.display='block'; return; }
+      if(!p1 || p1.length<4){ lockError.textContent='A senha precisa ter pelo menos 4 caracteres.'; lockError.style.display='block'; return; }
+      if(p1!==p2){ lockError.textContent='As senhas não coincidem.'; lockError.style.display='block'; return; }
+      const admin = { usuario:user, nome, hash: await hashText(p1), role:'admin', modulos:[] };
+      usuarios.push(admin);
+      await sSet('usuarios', usuarios);
+      unlockSession(admin);
+      renderTabsForUser();
+    };
+    document.getElementById('lockPass2').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockSubmit').click(); });
+  } else {
+    // login normal — usuário + senha
+    lockTitle.textContent = 'Acesso restrito';
+    lockSubtitle.textContent = 'Digite seu usuário e senha para entrar.';
+    lockFields.innerHTML = `
+      <div class="field"><input type="text" id="lockUser" placeholder="Usuário" autocomplete="username"></div>
+      <div class="field"><input type="password" id="lockPass" placeholder="Senha" autocomplete="current-password"></div>`;
+    document.getElementById('lockSubmit').textContent = 'Entrar';
+    document.getElementById('lockSubmit').onclick = async ()=>{
+      const user = document.getElementById('lockUser').value.trim().toLowerCase();
+      const p1 = document.getElementById('lockPass').value;
+      const conta = usuarios.find(u=>u.usuario.toLowerCase()===user);
+      if(conta && conta.hash && await hashText(p1)===conta.hash){ unlockSession(conta); renderTabsForUser(); }
+      else { lockError.textContent='Usuário ou senha incorretos.'; lockError.style.display='block'; }
+    };
+    lockReset.innerHTML = `<a href="#" id="lockReset" style="color:var(--cream-dim); font-size:.72rem;">Esqueci meu acesso — redefinir administrador</a>`;
+    document.getElementById('lockReset').addEventListener('click', async (e)=>{
+      e.preventDefault();
+      if(confirm('Isso vai apagar TODOS os usuários e senhas cadastrados e te levar para criar um novo administrador.\n\nOs dados da clínica (pacientes, agenda, financeiro, estoque) NÃO serão apagados.\n\nDeseja continuar?')){
+        await sSet('usuarios', []);
+        try{ localStorage.removeItem('rc_sessao'); }catch(err){}
+        location.reload();
+      }
     });
-    if(error){ lockError.textContent='Erro ao enviar e-mail.'; lockError.style.display='block'; }
-    else { lockReset.innerHTML='<span style="color:var(--ok);">✔ Link de redefinição enviado para rafa.med.costa@gmail.com</span>'; }
-  });
-  document.getElementById('lockEmail')?.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockPass').focus(); });
-  document.getElementById('lockPass')?.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockSubmit').click(); });
+    document.getElementById('lockUser').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockPass').focus(); });
+    document.getElementById('lockPass').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockSubmit').click(); });
+  }
 }
 
-function mostrarTelaCadastro(){} // removida — cadastro só pelo admin dentro do sistema
+// mostra/oculta as abas conforme as permissões do usuário logado
+function renderTabsForUser(){
+  document.querySelectorAll('#tabs button[data-view]').forEach(btn=>{
+    const modulo = btn.dataset.view;
+    // dashboard sempre visível; usuarios só para admin
+    if(modulo==='dashboard'){ btn.style.display=''; return; }
+    if(modulo==='usuarios'){ btn.style.display = ehAdmin()? '' : 'none'; return; }
+    btn.style.display = podeVer(modulo)? '' : 'none';
+  });
+}
 
 /* ============ INIT ============ */
 (async function init(){
   await setupLock();
   const userBadge = document.getElementById('userBadge');
   if(userBadge) userBadge.textContent = usuarioAtual() ? `Olá, ${usuarioAtual()}` : '';
-  document.getElementById('btnSair')?.addEventListener('click', async ()=>{
-    if(supa) await supa.auth.signOut();
+  document.getElementById('btnSair')?.addEventListener('click', ()=>{
+    try{ localStorage.removeItem('rc_sessao'); }catch(e){}
     location.reload();
   });
   renderTabsForUser();
