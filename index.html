@@ -1320,12 +1320,66 @@ function viewUsuarios(){
   return `
   <div class="section-title">
     <div><h2>Usuários</h2><p>Gerencie quem tem acesso ao sistema e quais módulos cada pessoa pode ver.</p></div>
+    <button class="btn" onclick="abrirCriarUsuario()">+ Novo usuário</button>
   </div>
   <div class="card" id="cardSolicitacoes"><div class="sub">Carregando solicitações...</div></div>
   <div class="card" style="margin-top:16px;" id="cardUsuarios"><div class="sub">Carregando usuários...</div></div>`;
 }
 function wireUsuarios(){
   if(!ehAdmin()) return;
+  carregarDadosUsuarios();
+}
+function abrirCriarUsuario(){
+  const checks = MODULOS_DISPONIVEIS.map(m=>`
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:.85rem;color:var(--cream);margin-bottom:6px;">
+      <input type="checkbox" value="${m.id}" class="modChkNovo" style="width:auto;"> ${m.nome}
+    </label>`).join('');
+  openModal(`<h3>Novo usuário</h3>
+    <div class="field"><label>Nome completo</label><input id="mUsrNome" placeholder="ex.: Raquel Casarini"></div>
+    <div class="field"><label>E-mail</label><input type="email" id="mUsrEmail" placeholder="ex.: raquel@email.com"></div>
+    <div class="field"><label>Senha inicial</label><input type="password" id="mUsrSenha"></div>
+    <div class="field"><label>Papel</label>
+      <select id="mUsrPapel">
+        <option value="paciente">Usuário comum</option>
+        <option value="admin">Administrador (acesso total)</option>
+      </select>
+    </div>
+    <div class="field"><label>Módulos permitidos (para usuário comum)</label>
+      <div style="max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px;">${checks}</div>
+    </div>
+    <div id="mUsrErro" style="color:var(--bad);font-size:.8rem;display:none;margin-bottom:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="criarUsuarioSupabase()">Criar usuário</button>
+    </div>`);
+}
+async function criarUsuarioSupabase(){
+  if(!supa) return;
+  const nome = document.getElementById('mUsrNome').value.trim();
+  const email = document.getElementById('mUsrEmail').value.trim();
+  const senha = document.getElementById('mUsrSenha').value;
+  const papel = document.getElementById('mUsrPapel').value;
+  const modulos = Array.from(document.querySelectorAll('.modChkNovo:checked')).map(c=>c.value);
+  const erro = document.getElementById('mUsrErro');
+  if(!nome||!email){ erro.textContent='Preencha nome e e-mail.'; erro.style.display='block'; return; }
+  if(!senha||senha.length<6){ erro.textContent='A senha precisa ter pelo menos 6 caracteres.'; erro.style.display='block'; return; }
+  document.querySelector('#mUsrErro').previousElementSibling.querySelector('button:last-child').textContent='Criando...';
+  // cria o usuário no Supabase Auth usando Admin API via service role não disponível no client
+  // alternativa: criar via signUp e depois aprovar
+  const { data, error } = await supa.auth.signUp({
+    email, password: senha,
+    options: { data: { nome } }
+  });
+  if(error){ erro.textContent=error.message||'Erro ao criar usuário.'; erro.style.display='block'; return; }
+  if(data.user){
+    const { error: perfilErr } = await supa.from('perfis').upsert({
+      id: data.user.id, nome, papel, status:'aprovado',
+      modulos: papel==='admin' ? [] : modulos
+    });
+    if(perfilErr){ erro.textContent='Usuário criado mas erro ao salvar perfil: '+perfilErr.message; erro.style.display='block'; return; }
+  }
+  closeModal();
+  toast(`Usuário "${nome}" criado com sucesso`);
   carregarDadosUsuarios();
 }
 async function carregarDadosUsuarios(){
