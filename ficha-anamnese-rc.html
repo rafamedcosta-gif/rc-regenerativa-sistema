@@ -4,389 +4,464 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ficha de Anamnese — RC Estética Regenerativa</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
-    --bg:#f6e1da; --bg-card:#fdf5f2; --line:#e0b6a5;
-    --copper:#b5703f; --copper-light:#7a4626;
-    --cream:#4a2f22; --cream-dim:#8a6552;
-    --ok:#3f6b38; --bad:#9c3a28;
-    --radius:14px; --shadow:0 8px 24px rgba(120,70,50,.12);
+    --bg:#f6e1da;--bg-card:#fdf5f2;--line:#e0b6a5;
+    --copper:#b5703f;--copper-light:#7a4626;
+    --cream:#4a2f22;--cream-dim:#8a6552;
+    --ok:#3f6b38;--bad:#9c3a28;--radius:14px;
+    --shadow:0 8px 24px rgba(120,70,50,.12);
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{background:var(--bg); color:var(--cream); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; padding:24px 16px 60px;}
-  h1,h2,h3{font-family:Georgia,'Times New Roman',serif; font-weight:600; color:var(--cream);}
-
-  .header{text-align:center; padding:32px 24px 24px; background:var(--bg-card); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:24px; max-width:680px; margin-left:auto; margin-right:auto;}
-  .header img{width:80px; height:80px; border-radius:50%; object-fit:cover; margin-bottom:12px;}
-  .header h1{font-size:1.4rem; letter-spacing:.3px; color:var(--copper-light);}
-  .header p{font-size:.85rem; color:var(--cream-dim); margin-top:6px;}
-
-  .form-card{background:var(--bg-card); border-radius:var(--radius); box-shadow:var(--shadow); padding:24px; max-width:680px; margin:0 auto 20px;}
-  .section-label{font-size:.72rem; text-transform:uppercase; letter-spacing:1px; color:var(--copper); font-weight:700; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--line);}
-
-  .field{margin-bottom:16px;}
-  .field label{display:block; font-size:.78rem; text-transform:uppercase; letter-spacing:.5px; color:var(--cream-dim); margin-bottom:6px; font-weight:600;}
-  .field input, .field select, .field textarea{width:100%; padding:11px 14px; border:1.5px solid var(--line); border-radius:10px; background:#fff8f5; color:var(--cream); font-size:.92rem; font-family:inherit; transition:border .2s;}
-  .field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--copper); background:#fff;}
-  .field textarea{resize:vertical; min-height:80px;}
-
-  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
-  @media(max-width:480px){.grid-2{grid-template-columns:1fr;}}
-
-  .check-group{display:flex; flex-wrap:wrap; gap:10px; margin-top:6px;}
-  .check-item{display:flex; align-items:center; gap:7px; background:#fff8f5; border:1.5px solid var(--line); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:.88rem; transition:border .2s;}
-  .check-item:has(input:checked){border-color:var(--copper); background:#fdf0e8;}
-  .check-item input{accent-color:var(--copper); width:16px; height:16px;}
-
-  .radio-group{display:flex; flex-wrap:wrap; gap:10px; margin-top:6px;}
-  .radio-item{display:flex; align-items:center; gap:7px; background:#fff8f5; border:1.5px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; font-size:.88rem; transition:border .2s;}
-  .radio-item:has(input:checked){border-color:var(--copper); background:#fdf0e8;}
-  .radio-item input{accent-color:var(--copper);}
-
-  .lgpd{background:#fdf5f2; border:1.5px solid var(--line); border-radius:10px; padding:14px 16px; font-size:.82rem; color:var(--cream-dim); line-height:1.6;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--cream);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;padding:20px 16px 60px;}
+  h1,h2,h3{font-family:Georgia,'Times New Roman',serif;font-weight:600;color:var(--cream);}
+  .header{text-align:center;padding:28px 20px 20px;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow);margin:0 auto 20px;max-width:660px;}
+  .header img{width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:10px;}
+  .header h1{font-size:1.3rem;color:var(--copper-light);}
+  .header p{font-size:.82rem;color:var(--cream-dim);margin-top:5px;line-height:1.5;}
+  .card{background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;max-width:660px;margin:0 auto 16px;}
+  .sec{font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--copper);font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:.76rem;text-transform:uppercase;letter-spacing:.4px;color:var(--cream-dim);margin-bottom:5px;font-weight:600;}
+  .field input,.field select,.field textarea{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:9px;background:#fff8f5;color:var(--cream);font-size:.9rem;font-family:inherit;transition:border .2s;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--copper);background:#fff;}
+  .field textarea{resize:vertical;min-height:72px;}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:460px){.g2{grid-template-columns:1fr;}}
+  .opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;}
+  .opt{display:flex;align-items:center;gap:6px;background:#fff8f5;border:1.5px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;font-size:.85rem;transition:border .2s,background .2s;}
+  .opt:has(input:checked){border-color:var(--copper);background:#fdf0e8;}
+  .opt input{accent-color:var(--copper);width:15px;height:15px;}
+  .lgpd{background:#fff8f5;border:1.5px solid var(--line);border-radius:9px;padding:13px 15px;font-size:.8rem;color:var(--cream-dim);line-height:1.6;}
   .lgpd b{color:var(--cream);}
-
-  .aceite{display:flex; align-items:flex-start; gap:10px; margin-top:14px; cursor:pointer;}
-  .aceite input{accent-color:var(--copper); width:18px; height:18px; margin-top:2px; flex-shrink:0;}
-  .aceite span{font-size:.85rem; color:var(--cream); line-height:1.5;}
-
-  .btn-enviar{display:block; width:100%; max-width:680px; margin:24px auto 0; padding:16px; background:var(--copper); color:#fff; border:none; border-radius:var(--radius); font-size:1rem; font-family:Georgia,serif; font-weight:600; letter-spacing:.5px; cursor:pointer; transition:background .2s;}
-  .btn-enviar:hover{background:var(--copper-light);}
-  .btn-enviar:disabled{opacity:.5; cursor:not-allowed;}
-
-  .resultado{display:none; background:var(--bg-card); border-radius:var(--radius); box-shadow:var(--shadow); padding:24px; max-width:680px; margin:20px auto; border-left:4px solid var(--copper);}
-  .resultado h3{color:var(--copper-light); margin-bottom:12px;}
-  .resultado pre{font-size:.8rem; color:var(--cream); white-space:pre-wrap; line-height:1.7; font-family:'Segoe UI',monospace;}
-  .btn-copiar{margin-top:14px; padding:10px 20px; background:var(--copper); color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:.88rem;}
-
-  .obrigatorio{color:var(--bad);}
-  .nota{font-size:.76rem; color:var(--cream-dim); margin-top:4px; font-style:italic;}
+  .aceite{display:flex;align-items:flex-start;gap:9px;margin-top:13px;cursor:pointer;}
+  .aceite input{accent-color:var(--copper);width:17px;height:17px;margin-top:2px;flex-shrink:0;}
+  .aceite span{font-size:.84rem;color:var(--cream);line-height:1.5;}
+  .btn{display:block;width:100%;max-width:660px;margin:20px auto 0;padding:15px;background:var(--copper);color:#fff;border:none;border-radius:var(--radius);font-size:.95rem;font-family:Georgia,serif;font-weight:600;letter-spacing:.4px;cursor:pointer;transition:background .2s;}
+  .btn:hover{background:var(--copper-light);}
+  .btn-ghost{background:transparent;border:2px solid var(--copper);color:var(--copper);}
+  .btn-ghost:hover{background:var(--bg-elev);}
+  .result{display:none;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;max-width:660px;margin:16px auto;border-left:4px solid var(--copper);}
+  .result h3{color:var(--copper-light);margin-bottom:10px;}
+  .codigo-box{background:#fdf0e8;border:2px dashed var(--copper);border-radius:10px;padding:16px;text-align:center;margin:14px 0;}
+  .codigo-box .cod{font-size:1rem;font-family:monospace;color:var(--copper-light);font-weight:700;word-break:break-all;line-height:1.6;}
+  .codigo-box p{font-size:.78rem;color:var(--cream-dim);margin-top:6px;}
+  .btn-row{display:flex;gap:10px;max-width:660px;margin:16px auto 0;flex-wrap:wrap;}
+  .btn-row .btn{margin:0;flex:1;min-width:140px;}
+  .req{color:var(--bad);}
+  .note{font-size:.74rem;color:var(--cream-dim);margin-top:6px;font-style:italic;}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <img id="logoImg" alt="RC Estética Regenerativa">
+  <img id="logo" alt="RC">
   <h1>RC Estética Regenerativa</h1>
-  <p>Ficha de Anamnese · Por favor, preencha com atenção antes da sua consulta</p>
+  <p>Ficha de Anamnese · Preencha com atenção antes da sua consulta<br>Suas informações são sigilosas e fazem parte do seu prontuário clínico</p>
 </div>
 
-<!-- DADOS PESSOAIS -->
-<div class="form-card">
-  <div class="section-label">Dados Pessoais</div>
-  <div class="field">
-    <label>Nome completo <span class="obrigatorio">*</span></label>
-    <input type="text" id="nome" placeholder="Seu nome completo" required>
+<div class="card">
+  <div class="sec">Dados Pessoais</div>
+  <div class="field"><label>Nome completo <span class="req">*</span></label><input id="nome" placeholder="Seu nome completo" required></div>
+  <div class="g2">
+    <div class="field"><label>Data de nascimento <span class="req">*</span></label><input type="date" id="dataNasc" required></div>
+    <div class="field"><label>CPF</label><input id="cpf" placeholder="000.000.000-00" maxlength="14"></div>
   </div>
-  <div class="grid-2">
-    <div class="field">
-      <label>Data de nascimento <span class="obrigatorio">*</span></label>
-      <input type="date" id="dataNasc" required>
-    </div>
-    <div class="field">
-      <label>CPF</label>
-      <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14">
-    </div>
+  <div class="g2">
+    <div class="field"><label>Telefone / WhatsApp <span class="req">*</span></label><input type="tel" id="tel" placeholder="(11) 99999-9999" required></div>
+    <div class="field"><label>E-mail</label><input type="email" id="email" placeholder="seu@email.com"></div>
   </div>
-  <div class="grid-2">
-    <div class="field">
-      <label>Telefone / WhatsApp <span class="obrigatorio">*</span></label>
-      <input type="tel" id="telefone" placeholder="(11) 99999-9999" required>
-    </div>
-    <div class="field">
-      <label>E-mail</label>
-      <input type="email" id="email" placeholder="seu@email.com">
-    </div>
-  </div>
-  <div class="field">
-    <label>Profissão</label>
-    <input type="text" id="profissao" placeholder="Sua profissão">
-  </div>
-  <div class="field">
-    <label>Como nos conheceu?</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="indicacao" value="Instagram"> Instagram</label>
-      <label class="radio-item"><input type="radio" name="indicacao" value="Indicação de amigo/a"> Indicação</label>
-      <label class="radio-item"><input type="radio" name="indicacao" value="Google"> Google</label>
-      <label class="radio-item"><input type="radio" name="indicacao" value="Outro"> Outro</label>
+  <div class="g2">
+    <div class="field"><label>Profissão</label><input id="profissao" placeholder="Sua profissão"></div>
+    <div class="field"><label>Como nos conheceu?</label>
+      <select id="indicacao">
+        <option value="">— selecione —</option>
+        <option>Instagram</option><option>Indicação de amigo/a</option>
+        <option>Google</option><option>TikTok</option><option>Outro</option>
+      </select>
     </div>
   </div>
 </div>
 
-<!-- SAÚDE GERAL -->
-<div class="form-card">
-  <div class="section-label">Saúde Geral</div>
-  <div class="field">
-    <label>Possui alguma doença ou condição de saúde?</label>
-    <div class="check-group">
-      <label class="check-item"><input type="checkbox" name="doenca" value="Diabetes"> Diabetes</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Hipertensão"> Hipertensão</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Hipotensão"> Hipotensão</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Problemas cardíacos"> Cardíaco</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Tireoide"> Tireoide</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Câncer"> Câncer</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Lúpus"> Lúpus</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Coagulopatia"> Coagulopatia</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Herpes"> Herpes</label>
-      <label class="check-item"><input type="checkbox" name="doenca" value="Nenhuma"> Nenhuma</label>
+<div class="card">
+  <div class="sec">Saúde Geral</div>
+  <div class="field"><label>Doenças crônicas (marque todas que se aplicam)</label>
+    <div class="opts">
+      <label class="opt"><input type="checkbox" name="doenca" value="Diabetes"> Diabetes</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Hipertensão"> Hipertensão</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Hipotensão"> Hipotensão</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Cardíaco"> Cardíaco</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Tireoide"> Tireoide</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Câncer"> Câncer</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Lúpus"> Lúpus</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Coagulopatia"> Coagulopatia</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Herpes"> Herpes</label>
+      <label class="opt"><input type="checkbox" name="doenca" value="Nenhuma"> Nenhuma</label>
     </div>
   </div>
-  <div class="field">
-    <label>Outras condições não listadas acima</label>
-    <input type="text" id="outraDoenca" placeholder="Descreva se houver">
-  </div>
-  <div class="field">
-    <label>Faz uso de medicamentos contínuos?</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="medicamentos" value="Não"> Não</label>
-      <label class="radio-item"><input type="radio" name="medicamentos" value="Sim"> Sim</label>
+  <div class="field"><label>Outras doenças não listadas</label><input id="outraDoenca" placeholder="Descreva se houver"></div>
+  <div class="field"><label>Cirurgias recentes / cicatrização</label><textarea id="cirurgias" placeholder="Tipo e data. Ex.: rinoplastia — jan/2024"></textarea></div>
+  <div class="field"><label>Medicamentos de uso contínuo</label><textarea id="medicamentos" placeholder="Nome e dosagem"></textarea></div>
+  <div class="field"><label>Alergias conhecidas</label><textarea id="alergias" placeholder="Medicamentos, cosméticos, látex, alimentos..."></textarea></div>
+  <div class="field"><label>Gestante, amamentando ou possibilidade de gravidez?</label>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="gestante" value="Não"> Não</label>
+      <label class="opt"><input type="radio" name="gestante" value="Gestante"> Gestante</label>
+      <label class="opt"><input type="radio" name="gestante" value="Amamentando"> Amamentando</label>
+      <label class="opt"><input type="radio" name="gestante" value="Possível"> Possível</label>
     </div>
   </div>
-  <div class="field">
-    <label>Se sim, quais medicamentos?</label>
-    <textarea id="medicamentos" placeholder="Nome dos medicamentos e dosagem"></textarea>
-  </div>
-  <div class="field">
-    <label>Possui alergias conhecidas?</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="alergia" value="Não"> Não</label>
-      <label class="radio-item"><input type="radio" name="alergia" value="Sim"> Sim</label>
+</div>
+
+<div class="card">
+  <div class="sec">Pele e Cabelo</div>
+  <div class="g2">
+    <div class="field"><label>Tipo de pele</label>
+      <select id="tipoPele">
+        <option value="">— selecione —</option>
+        <option>Eudérmica (normal)</option><option>Oleosa</option>
+        <option>Seca</option><option>Mista</option>
+        <option>Sensível</option><option>Alípica</option><option>Asfíctica</option>
+      </select>
+    </div>
+    <div class="field"><label>Fototipo (Fitzpatrick)</label>
+      <select id="fototipo">
+        <option value="">— selecione —</option>
+        <option>I — Muito clara</option><option>II — Clara</option>
+        <option>III — Morena clara</option><option>IV — Morena</option>
+        <option>V — Morena escura</option><option>VI — Negra</option>
+      </select>
     </div>
   </div>
-  <div class="field">
-    <label>Se sim, quais alergias?</label>
-    <textarea id="alergias" placeholder="Alergias a medicamentos, cosméticos, látex, etc."></textarea>
+  <div class="field"><label>Queixa principal / objetivo</label>
+    <div class="opts">
+      <label class="opt"><input type="checkbox" name="queixa" value="Manchas"> Manchas</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Acne"> Acne</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Rugas"> Rugas</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Flacidez"> Flacidez</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Poros dilatados"> Poros</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Olheiras"> Olheiras</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Queda de cabelo"> Queda capilar</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Hidratação capilar"> Hidratação capilar</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Rejuvenescimento"> Rejuvenescimento</label>
+      <label class="opt"><input type="checkbox" name="queixa" value="Limpeza de pele"> Limpeza de pele</label>
+    </div>
   </div>
-  <div class="grid-2">
-    <div class="field">
-      <label>É gestante ou está amamentando?</label>
-      <div class="radio-group">
-        <label class="radio-item"><input type="radio" name="gestante" value="Não"> Não</label>
-        <label class="radio-item"><input type="radio" name="gestante" value="Gestante"> Gestante</label>
-        <label class="radio-item"><input type="radio" name="gestante" value="Amamentando"> Amamentando</label>
+  <div class="field"><label>Doenças de pele diagnosticadas</label>
+    <textarea id="doencasPele" placeholder="Acne, rosácea, melasma, herpes, psoríase..."></textarea>
+  </div>
+  <div class="field"><label>Protetor solar diariamente?</label>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="protetor" value="Sim, todos os dias"> Sim, todos os dias</label>
+      <label class="opt"><input type="radio" name="protetor" value="Às vezes"> Às vezes</label>
+      <label class="opt"><input type="radio" name="protetor" value="Não uso"> Não uso</label>
+    </div>
+  </div>
+  <div class="field"><label>Ácidos, retinol ou ativos na rotina?</label>
+    <textarea id="rotinaAtivos" placeholder="Ex.: vitamina C, retinol, AHA, BHA... ou Não uso"></textarea>
+  </div>
+  <div class="field"><label>Procedimento estético nos últimos 30 dias?</label>
+    <textarea id="procRecente" placeholder="Ex.: peeling, toxina botulínica... ou Não"></textarea>
+  </div>
+  <div class="field"><label>Histórico de queloide ou cicatriz hipertrófica?</label>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="queloide" value="Não"> Não</label>
+      <label class="opt"><input type="radio" name="queloide" value="Sim"> Sim</label>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="sec">Estilo de Vida</div>
+  <div class="g2">
+    <div class="field"><label>Atividade física?</label>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="atividade" value="Sim"> Sim</label>
+        <label class="opt"><input type="radio" name="atividade" value="Não"> Não</label>
       </div>
     </div>
-    <div class="field">
-      <label>Realizou alguma cirurgia nos últimos 6 meses?</label>
-      <div class="radio-group">
-        <label class="radio-item"><input type="radio" name="cirurgia" value="Não"> Não</label>
-        <label class="radio-item"><input type="radio" name="cirurgia" value="Sim"> Sim</label>
-      </div>
-    </div>
-  </div>
-  <div class="field">
-    <label>Se sim, qual cirurgia?</label>
-    <input type="text" id="cirurgia" placeholder="Tipo de cirurgia e data aproximada">
-  </div>
-</div>
-
-<!-- PELE E CABELO -->
-<div class="form-card">
-  <div class="section-label">Pele e Cabelo</div>
-  <div class="field">
-    <label>Tipo de pele</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="tipoPele" value="Normal"> Normal</label>
-      <label class="radio-item"><input type="radio" name="tipoPele" value="Seca"> Seca</label>
-      <label class="radio-item"><input type="radio" name="tipoPele" value="Oleosa"> Oleosa</label>
-      <label class="radio-item"><input type="radio" name="tipoPele" value="Mista"> Mista</label>
-      <label class="radio-item"><input type="radio" name="tipoPele" value="Sensível"> Sensível</label>
-    </div>
-  </div>
-  <div class="field">
-    <label>Principais queixas / objetivos com o tratamento</label>
-    <div class="check-group">
-      <label class="check-item"><input type="checkbox" name="queixa" value="Manchas"> Manchas</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Acne / espinhas"> Acne</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Rugas e linhas finas"> Rugas</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Flacidez"> Flacidez</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Poros dilatados"> Poros</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Olheiras"> Olheiras</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Queda de cabelo"> Queda de cabelo</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Hidratação capilar"> Hidratação capilar</label>
-      <label class="check-item"><input type="checkbox" name="queixa" value="Rejuvenescimento"> Rejuvenescimento</label>
-    </div>
-  </div>
-  <div class="field">
-    <label>Usa protetor solar diariamente?</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="protetor" value="Sim, todos os dias"> Sim, todos os dias</label>
-      <label class="radio-item"><input type="radio" name="protetor" value="Às vezes"> Às vezes</label>
-      <label class="radio-item"><input type="radio" name="protetor" value="Não uso"> Não uso</label>
-    </div>
-  </div>
-  <div class="field">
-    <label>Faz uso de ácidos, retinol ou ativos fortes na rotina?</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="acidos" value="Não"> Não</label>
-      <label class="radio-item"><input type="radio" name="acidos" value="Sim"> Sim</label>
-    </div>
-  </div>
-  <div class="field">
-    <label>Se sim, quais produtos?</label>
-    <input type="text" id="rotinaPele" placeholder="Ex.: vitamina C, retinol, AHA, BHA...">
-  </div>
-  <div class="field">
-    <label>Realizou algum procedimento estético nos últimos 30 dias?</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="procRecente" value="Não"> Não</label>
-      <label class="radio-item"><input type="radio" name="procRecente" value="Sim"> Sim</label>
-    </div>
-  </div>
-  <div class="field">
-    <label>Se sim, qual procedimento?</label>
-    <input type="text" id="procRecente" placeholder="Tipo de procedimento e data">
-  </div>
-  <div class="field">
-    <label>Tem histórico de queloides ou cicatrizes hipertróficas?</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="queloide" value="Não"> Não</label>
-      <label class="radio-item"><input type="radio" name="queloide" value="Sim"> Sim</label>
-    </div>
-  </div>
-</div>
-
-<!-- ESTILO DE VIDA -->
-<div class="form-card">
-  <div class="section-label">Estilo de Vida</div>
-  <div class="grid-2">
-    <div class="field">
-      <label>Pratica atividade física?</label>
-      <div class="radio-group">
-        <label class="radio-item"><input type="radio" name="atividade" value="Sim"> Sim</label>
-        <label class="radio-item"><input type="radio" name="atividade" value="Não"> Não</label>
-      </div>
-    </div>
-    <div class="field">
-      <label>Fuma?</label>
-      <div class="radio-group">
-        <label class="radio-item"><input type="radio" name="fuma" value="Não"> Não</label>
-        <label class="radio-item"><input type="radio" name="fuma" value="Sim"> Sim</label>
-        <label class="radio-item"><input type="radio" name="fuma" value="Ex-fumante"> Ex-fumante</label>
+    <div class="field"><label>Fuma?</label>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="fuma" value="Não"> Não</label>
+        <label class="opt"><input type="radio" name="fuma" value="Sim"> Sim</label>
+        <label class="opt"><input type="radio" name="fuma" value="Ex-fumante"> Ex-fumante</label>
       </div>
     </div>
   </div>
-  <div class="field">
-    <label>Nível de estresse no dia a dia</label>
-    <div class="radio-group">
-      <label class="radio-item"><input type="radio" name="estresse" value="Baixo"> Baixo</label>
-      <label class="radio-item"><input type="radio" name="estresse" value="Moderado"> Moderado</label>
-      <label class="radio-item"><input type="radio" name="estresse" value="Alto"> Alto</label>
+  <div class="field"><label>Nível de estresse</label>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="estresse" value="Baixo"> Baixo</label>
+      <label class="opt"><input type="radio" name="estresse" value="Moderado"> Moderado</label>
+      <label class="opt"><input type="radio" name="estresse" value="Alto"> Alto</label>
     </div>
   </div>
-  <div class="field">
-    <label>Informações adicionais que queira compartilhar</label>
-    <textarea id="obs" placeholder="Qualquer informação relevante para seu atendimento..." rows="3"></textarea>
+  <div class="field"><label>Observações adicionais</label>
+    <textarea id="obs" placeholder="Qualquer informação relevante para seu atendimento" rows="3"></textarea>
   </div>
 </div>
 
-<!-- LGPD -->
-<div class="form-card">
-  <div class="section-label">Consentimento e Privacidade</div>
+<div class="card">
+  <div class="sec">Consentimento — LGPD</div>
   <div class="lgpd">
-    <b>Termo de consentimento (LGPD):</b> Suas informações serão utilizadas exclusivamente para fins de avaliação clínica e execução dos procedimentos estéticos pela RC Estética Regenerativa. Os dados são tratados com sigilo, não são compartilhados com terceiros e você pode solicitar acesso, correção ou exclusão a qualquer momento pelo WhatsApp (11) 98112-6897.
+    <b>Termo de consentimento para tratamento de dados (LGPD — Lei 13.709/2018):</b><br><br>
+    Seus dados pessoais e de saúde são coletados exclusivamente para avaliação clínica e execução dos procedimentos estéticos pela <b>RC Estética Regenerativa</b>, sob responsabilidade da biomédica Raquel Casarini.<br><br>
+    Os dados são tratados com <b>sigilo total</b>, não são compartilhados com terceiros e você pode solicitar acesso, correção ou exclusão a qualquer momento pelo WhatsApp <b>(11) 98112-6897</b> ou e-mail <b>rmr.biomedi@gmail.com</b>.<br><br>
+    O preenchimento desta ficha constitui <b>consentimento livre e informado</b> nos termos do art. 7º, I da LGPD.
   </div>
   <label class="aceite">
     <input type="checkbox" id="aceite" required>
-    <span>Li e concordo com o tratamento dos meus dados conforme descrito acima, e confirmo que as informações preenchidas são verdadeiras.</span>
+    <span>Li e concordo com o tratamento dos meus dados conforme descrito acima. Confirmo que as informações preenchidas são verdadeiras e completas, e estou ciente de que omissões podem comprometer a segurança do meu atendimento.</span>
   </label>
-  <p class="nota" style="margin-top:12px;">* Campos obrigatórios. Esta ficha é sigilosa e faz parte do seu prontuário clínico.</p>
 </div>
 
-<button class="btn-enviar" id="btnGerar" onclick="gerarResumo()">Gerar resumo para enviar à clínica</button>
+<button class="btn" onclick="gerar()">✅ Gerar PDF + Código de importação</button>
 
-<div class="resultado" id="resultado">
-  <h3>✅ Ficha preenchida — copie e envie pelo WhatsApp</h3>
-  <pre id="textoResumo"></pre>
-  <button class="btn-copiar" onclick="copiarResumo()">📋 Copiar texto</button>
-  <p class="nota" style="margin-top:10px;">Copie o texto acima e envie para o WhatsApp da clínica: (11) 98112-6897</p>
+<div class="result" id="result">
+  <h3>🎉 Ficha pronta!</h3>
+  <p style="font-size:.85rem;color:var(--cream-dim);margin-bottom:12px;">Envie o PDF e o código abaixo para a Raquel pelo WhatsApp.</p>
+  <div class="codigo-box">
+    <div class="cod" id="codigoExibido">—</div>
+    <p>📋 Este é o seu código de anamnese — envie junto com o PDF</p>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="gerarPDF()">📄 Baixar PDF</button>
+    <button class="btn btn-ghost" onclick="copiarCodigo()">📋 Copiar código</button>
+  </div>
+  <p class="note" style="margin-top:12px;">WhatsApp da clínica: (11) 98112-6897</p>
 </div>
 
 <script>
-// Logo
-document.getElementById('logoImg').src = 'data:image/jpeg;base64,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';
+document.getElementById('logo').src = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCAEsASwDASIAAhEBAxEB/8QAHAAAAgIDAQEAAAAAAAAAAAAAAAEGBwIDBQQI/8QASBAAAQMDAgIGBgcFBgYBBQAAAQACAwQFEQYhEjEHE0FRYXEUIoGRobEjMkLB0eHwFTNScoIWQ2JjkqIkNFNUc8ImRJOjsvH/xAAZAQEAAwEBAAAAAAAAAAAAAAAAAQMEAgX/xAAsEQACAgICAQIFBAIDAAAAAAAAAQIDBBESMSETIhQyQVFhBSNCgRUzNEOR/9oADAMBAAIRAxEAPwD6ZTSQoJHyQjKSAaEFCAaEkwgBHJCEAZTSwmgDKecpJoAQhNAIBNCEAIKEIATSwmgEmhCAMoQhACEJIBoQhAGUk0kAITSQAhJCAaMpIQGCEkIATQhACEIQDTASCaAEIQgBNJCAaEIygAbIRlcW+axsenRi4V8Ucp5Qt9aQ/wBI3965lJJbZ1GLk9JHbQquufTSMuZarZnukqX4/wBo/FRqo6Q9V3Jx4a8wszjFOwMA9uPvWaWXBdeTXDBtl34L3AJ7E+E9y+fn3G8y71FwuMnF2GZ34rB12kgJLpbhtzIcfxVfxv2iW/47Xcj6F4T3I4Svn6DXE1K/6G7XCnwftvd+JUpsfSPXSubGy8U9U4/YnAyfkV1HMj9UcS/T5rzFplrowo5Qa0a8htfSGP8AzITxD/Sd/dlSCkrKW4R9ZSzslaOfCdx5jmFphbGfTMk6pw+ZGaQWRalhdlYkI5IUgEIQgBCEIASTQgEhCMIBZQU0sIDWhHNCAaSE0AYRhCaAEICaAMoQhACaRKwfIGjJKgGZdgLk33Utt07SGquFS2Jn2W83PPc0dpUb1v0j0um43U1Nw1FwLciLOzB3u7vLmfiqL1TqqsnqnzVhkuFfKBiInAhzy4sfVHc0bnw5rNbkcfbHyzZRiuful4RO9TdLF4vD3QWzNupDkZafpnjxd2eQ96hvBJLJxkvc955k5LifiV4rBaq5ruKslfVVlQfqtbhkY7GMbyAHfzPaVdej+jSKCmFZdWccjhlrPD8PmsOp2y72elyrx49aKlMppp2wdWX5+vIQeBngNxxO9oA7zyU60zdtN0RYJrdUzB/quqOta8j+kAADwCkt96PaKtDnCFmcYGWjbwHcq8uWj6/T07p7e5574nnIPt/XsXcqJQ8oqjlxs8S8F2UNqtVbStqKHqZYXcnMHwI7CsZtOUj8gwtPsVS6X1s+2TOdHUmhlG0sUw9R58c/ruU7g6R6iWIOfb6WQnk6OYtB9mD81fC+GtSWmZrMWze4PaPTXaJopwQIgM+Cid26LKV4cYoQ0nfLPVPwXWrOkG4uJEYt1IP8fE93syQPgua/X8gfia9sDu5kLcf/AKqJW1MQouXneiLS2XVGlzm1XB8kY/8Ap6kcTfy9mPNdWydJVNFVsgvcMtlreTZwT1bv6uweeR4ruwahhuWGC4UVU532HtDXfDHyXgvOn6S4wubNSgtPZ9YefePcqWoP5WaE5rxNbLHtuo3FjPTS2WJwy2piG2O8gdniPcu83hkYHscHNcMhzTkEL50oJ730fTcdvL7haXHMlI92Swd7D2H9YKtPR2saK80YrbPKZoM4npX7Pjd5dh+BV9eQ0+MzPdiprnWTchLCIJ46uISwuy0+8HuI7CmQtqZgEkmkVJAIQhACSaEAsIQUIASwmkgNaEIQAn7EIQAmhCAEIQgBBSWEkgaMkqAKWUMaSTgBVv0g9IwtEb6C3yB1a9v1gMiIfxHx7gvZr/WbbPSPigPFUSeqweP5KnI2TXCplkmL6l5xJJ3yEnAb7SQPAZ7ljyL9e2PZvxMbn759GVPTVdwqDIJHekO+mkqJfW6ph/vDnm4/ZB7snYDPhNNDUVzGW+F74g49UMlzpHnnI49pPepHcqSoaYrDRRvnqqv6SoewfWJ29g2wO5oVpdHnRlBpyJtdcg2atcNmEbRjuWaEHJ8Y/wBmyy2MFzl/SNfRz0dMtcTLpdGB1S8ZZGdw1WDIeJZEkpL0a61BaR5NtsrJcpGh8QcOS5ldZ4qxpD2ArskZS4V3rZWQSu6OLdXuDpY9xyI5j2rGn6K7RGcyNkkz2FynnAnwrh1RfaO1bNdMiLej6yxt4RRtI/xEleWq6OrPI0htFC3yYFOOFYlgKn04/YepL7lP3jorpmtc6laYj3xnh+WyjzZNT6Rk+jldX0rP7mUbgeH5Y8ir6lpw4bhcO7WGGsYQWDPfhUzoT6Lq8mUeyEWO8WXWkToYnGkrgDxwv+sT/wC3wIUYvNmu2irw29WdvVVIzxxj91VM7Qf1n5r26o0TJTzironOp6mM8TJWbHI5cl19K6uh1Ew2DUUTG12OEOds2fxB7HeXPwOyxzg4+Gbq7FL3RJVoXW1JqW3tulvyxwIjq6Rx9aJ/cfuPaFO2PZNG2SM5a4ZBXznqS2XLomvzdV2tktVaXngro2D60ZP2h3jmHfnm7dM3qmrqanqKaVstFWRtlheDsQRkFaMe3XtZRlUJrnE7pGELNwWC2nnAgpboUgEu1MoQCKE0kAYSTSQGtNLCAgGhCEAJoQgDKCUFYk4UAT3YCj+pb0y2Ub3lwBxtuuvVzCKMuJ5KmOk6/vnBpY3/ALzIIz9kc/w9qqtnwjstprdklEjVyusl8r5auR7izkxp/h/Pn7lYXRjo2Kutj7hURgda7jbkb9ob8Mn+pVHbnmd08ET8ua/qT4PwMj2E48wV9R6VoI7Xp+lp4xhrWADyAwPgFgx4c7G5HqZc1XUoxNVo0tbLNM+oggDqh+Myv3Ps7l2MEriX/UbbJTvlEJleASG5wCqmPS3q8F59JohhxAAphyyVsnbCrwYKqLL/ACi9MI4VSFP0na5qcOjkpHtwXerS5wAcbok6VtZU/wC96kAD/tD+C5+Kj9mdPCmu2i8OFLhVNWvpru88vVyR0kjv4XxFhPtBU7sHSPbrvK2nrInUM7tgXHLHHz7F1HJg3rejmeHbFctbX4JThC2ObtkclrOy0GUEELVNURwMc+R7WtaMkk4ACiF36SIIS6K0wNrHDnM92Ix5Y3d8B4ridkYLcmWV1SseoomRatb4gexVlPrTUNRmRj6nhxnhpoGtb/qIJ+K5kvSPd7Y7iq47sGjmQ9r/AIcJVPxMfomX/CS+rRZV0tUdTE5paDlVZq7R/G4ujDo5WHiZI3mCpfpfpBGoGEwTQ1YaMvje0RytHs2Pu9q71VBTXencY2kOA9Zjxhzf13jZRyhavBHCdL2yD6J1f+2Q/T1/jYa5rCwGQAtqmY3BB2Jx7/PKkenNM0elKGS3Wx8raESulhp3kuFOHbljDz4c5IB5ZUD1fpqRknXwcUVRCeOORuxBClWgdZN1NRupastjulIMTMOxkH8Y+/8AMLLKLj4NsJqS2ix6Cp9Kpg4/Xbs5bSFyLZUCGqDTs2Tb2rsuC30z5R2eddXwlowQhCuKRIQhACSaEAkYQhAak0YQgBCEZQAhCCgAlYPdgLIrRO/haSuQcHU9eKekdg4J2VBagujZbjWVkwLoaVj5MdjgwZ4fa7DfaFa2vbmIYJTnZjCcKn/Q3VNJwHOamdkbwe1rfpHfERrDky21E9LCjpOZ4ujSOR89vjqncc01eHSu/ic6Xicfevrmmb1dvp290bfkvlHTDBab7TNI4RHXRvye7iH5r6ugdxUUB/yx8lON80hm/LEiOtGcVO7vIPyVKNa1skzTjiErvmrv1j+4PkVSTjw1FQf809ipzO0aP036lo9E9uZVWepfI0H6QtAx45UjuWmKSdrswtz5Ln9Do4tPTu/z3KZzxg5WqiKdaMOVNq2SKQ1hoxjcljeFw+q4c1xbLM+Wm4JXfSwu4Dkc+4/ruVv6ooWy0jnY3G6qali6q91UYGGkcXx/NZ8qtJbNeBa3Liy4+j++SXK1vpKmTjnpTji/iYeX4LrXS6Q26B0srw1rRndV7pGv9AuweC0MewsceWdwufrK9S3m4toY3nqQeKTB5ju9v4ruvI1Vt9lduJyvaj0zO7ajqtSynBLKFp9SL/qeLvDuCkWkNGxVEQudwiywn6GI8nf4j4dw7efcuNpqyftGvgpdxGTl57h2/BWsWNja2ONoaxgDWtHIAKMeDsfqTJy5qlKqvwc2S3xOGOBuPJcO86ZpqqN2GAOx3KVELzzx5C3OKZ5qk0UHqSxVWnrg27Wwuhnp3cbg3k4eXb+grK05qOK+WSC8044SWHLQfquHNviD94Rqq0+kxuxGXcQIOAuL0WaeudvqqykqKKSO2CoFQyV+wJAzwgczk8P+krHKpqa4m2u5ODUiValtzZqdzi3DgM47lS1wp7pbNZU9VYsensjfM2HsqQxpcYz/ADAEDxKv29hogkJ7iqrstL+0OkuleBxNooHyuI7MjhHxIXd6SOMZvZPNN6hotT2SjvVtkLoKqMSNB5sPa0+IOR7FNIpBNAyQfaGV89dE12/s/re96Tc/NvrZ5qygHYxwceJo8C3f2K+rTJxUxZ/A5c48tSaLMuPtUj1FLsWR5pLaeeJCEFSASQhABQhJAYIQjKAEIyhACEJZQCcvFWv4Y3L2O5LmXR/BA93guWSVH0h1TnxvaDs9+D5ZAXN05aPTaaKTGRHE6XPi+Th+Uaet5i6aJmebvuKmWhrc0WBzyASYoW/7OL5uK86XutPVq9tGyuNV2wW+5RyMGOsB5dhG4X0Ppa4tu2m6KraQeONrj5kA/eqX6QaMmnbLyMbg7PwPzU66F7p6Xpp9I45dTvc0eWQ7/wB/gpofGxr7jJXOlSX0OlrD90fIqlHDNTUZG/WFXZrI4hPkVSjyfSqgA4+kPtVeX2i39O8Jly9DwA09PjkZ3KazqE9DhJ07OMbCd3zU0qXBoJK3Y/8ArR5uV/ukRzU0ojopM9yp9lR1l4qZQdm4bjvO5/BTjpB1JDTs9FY8Old9kHf8lX9sglkkbHEx80sr9uFpcXOPZgLJlzT9qN36fU4++R23XIUzI3NOeIuPkGjJ+JYPavDpN0lyjkr6hxc+d7pG+DMkNHuGfavZqOzy2i0VEsoxUmDh4AciMbnHie89/gAsNMU4o7dSMaMgQsHLuAWWxOKUWehS1Nymi0NAUQa2oqyN9ox+vYpU7crj6Lj4LDG483ucSuwQvWojqtHgZUuVsmYELEtBWzCSuM5pNNG45LQVmQGNwBgLIrVM7DSU0CMayubaK2yuLsbFRPQ9K+ksFXfCzhrrq/ghd2hmS1nxy7yC19K9c+O2zgE4ADfeVLrHRMNptMYADYqZjsePV4+8rHb7ppG6j2wcindRUZ05ebbe4Wlr6CoY52OZbnBHtGy+grRM18j+A5Y9oc094VT9IFtEtPUtI2HrBWFoSc1FmtUjjlzqNgJ7yG4PyVdfi3Rdb7qdslB5rErJyxK9BHlgkmkpAIQhAJCaSAwSTQgEmkE0AJJpKAYu5Lj3s4pJf5Suu9ci8AuppB3grl9Eoo/XD3MqYcDbP3FWdoFrZNMROHN0cR//ABN/BVnr9mDE7HJw+8Kd9GFwY7TUbCd2xAf6XOb8uFYP+09Necc5+vIQLdVZA2Y75JdBUjxPWsJ2Jzj+n8gvB0kXaMUxpmuy+d3CAO7t+HzUg6Era+C31Nc5nC2QnHjnH3Nz7VzHzatFkvGO9kg1p+4d/KVSQP8Ax1RknHWEK7NZn6B3kfkqNdMPSqjJP71y5yl5O8B+1nWparULGNZaaushgDeN4ikLQCXOHYf8OVoqr5f+sdBX3K5Fh753Y9u6sTott8VfZKh72B2TwjPdxOWnVumGcMjQwYIyNlKqfBNESyErGmiF2KG2SXCIXdlS+nLjxuY/BIPLPl5q8rRZbPbbex9ohiEUjciUblw8zuqFpXejzvppW/U5EnGQrG6PNTCmebTO/ML94iTkNPd+vuUY01GWpInLrc4cov8Ao168gMlPUDw+5cOwcLKKB3PMbe3PYFMdYU3EyQY5tKgWn5gIjA8t44ZCzhxyGdvgQucpe7Z3gy9jRc2jDnTtP4Fw+K655qO6CqettcsB2MUpwPA7qRuC9Kl7rR5GQtWyX5MCkUykVaUCK89SfUK3ndaZxlpRgqXpSgdJb6rA+yHe5TPSNS2rsFoqGuyH0rGnHeG4PxC42vKMTU7wRkOYQvL0VV5l0eICcvoZ5IiPAHiHzKxWeJpm6nzW0bddsb6LU4G/AV3ujcn+z1pB59U7b2uUW6QK1sME2Ts5pCmGhYDT2q0w4wW0jXEebc/Nyriv3kXy/wCOyVu5rErJyxXoo8oWUIKFIBCSEA0kIUA1ppZQpAJpIQDSTSKgGD1zLkzihePBdRy8VWziYQoZJSHSDA51I9wG7N/ccrn6N1C60UE7A4ua14JGeTX4aT7HCP3lS3WdDxRzsI55+KrG1ubC98crTwODopQDu5hGHAePd4gLzb/bJSPWxFzg4HRqvSNT6mjpo3F7nuDGgfZHMn9dy+kLFZorDZaahiaBwNBd4u7VQvQ5SF+unU1YQ+amYTxf9QEt4ZB4Oac+3HYvo6f6qtxYeXJlWdN+IIhGsyOod5H5Kh55GsrKrY5612RnHar11oR1Ls8uEqgKqQPrKk5H712/9RVWV8xdg/Ky9OhLEmmZnAYHWkf7nKU3y3tqoHDG6i/QXvpacd07h8c/ep5VR8QK10rdaMOQ9WyKG1baJIZ+viBaWO3x2+HtXFpLjJFI007iHAhwdk81bGrbK2ZjnBuzuaqOspv2TWuY4OAedt9gfzWLIqae0ehhXp+yRbtBdGaksLJT/wAxEOF7c55fr5d6gNZF+xb2agjENRhrvB32T93uW3R97/ZlZ1jnExyeq9pOR5/r7lLNRWCK5U3GxvFFIMg93gob9WG/qjpL4ez8M9Ghr0KS6tZI7hhqGhhyeTvs/eFZjgvn2lnlttQ2jq3FgBxHKdge4E9/zVs6V1dDWwso62QNnYMNkJ2kH4q3EuS9kinPo5P1YElKxK2Obtkbg9y1udjOV6J5IivHXXGioGA1dTFCHHhbxndx7gO1eK/6gp7PSulleM/ZHa49wUPsVqqtU3p9wuPFwRHBYeUDT9j+dw2x9lpOdyMVTs0+K7Lq6uS5S6Ozq6mElJxjBHPI7QVCeiqQw3jUFtdszijmb8QfmFYepWj0KQYAAGw7lW+gy6PpBubG/VfR5I/raqL/ALl+K+0eDXk76yajtjDmWoqY6YY7SXAK5rDE1lTK1gwynibGPb+TQqbslOb50syxAcVPZ3zVMmeQkLy1g8+32K69Ps/4F9R/3EjpAf8ACPVb8Bn2rihbs2XZT41KJ0XLBMpLeeYCEIUgRQhCAEZQkgMChCEAJpIQDSymkgMSvPO3IK9JWqVuQuQQbVdCH5djYjBVK3imdQ3d4xhrjxe3kfu96+hb1SdfA4KndcWpzmGVrfWYc7D3j3LJkw2jdh28Jo9vR7U0lJqOiuEkvUYzCXAZ42k54Dns4twewk96v2V4kjD2EOa4ZBC+U7TcWxNETiOE8jlXB0da9D5GWe5SZ4toZXHn+az4t3F8JG7Ox+a9SH07OxqqhnuDHxRNPERscKpR0X30vLA6Nz3HPEGnBPvX0Y+kYd8A57Vi2mYw7NC1zoU3tnm15Uq1qJDeirTNz0pQVUFxdE5sz+sZwuORsBjHsU0l9ZPGEEK6EFFaRRZNzlyZy6+lbPG5pGchVfq/TjZOLLdxu0q3pGZC4l4tLKyJwLd1E4ckTCbi9lB0tRJS1BinzxsOM5xxBWVozUcLohQVj+KJ+zXH7Pd+vw3jmqtLvDzIxvDIzcEKN0FbNSylsjSyRm/DyyO8LzJRdUto9qFkciHGXZcF80jHVREsY2RrhkdoIUQdZLtaX4g45YhyjkBOPI8wu1o3pEhaW0FydmE7MkJ3b5/r87GbSUtZGJoSyVjuTm7rQq67ltGOVluO+MuirqPV2oLeeqbTVoA5BhDx/uXRj1JrC5nghoqpoO3E5sTce38lPm2qBpz1bfcvTHAyL6rQFbHHa/kymWUn54IhFt0LXVlU2svFa5vaWRvL5D4cZ+qP5R7VM6akp6ClZTUsLIYYxhrGjYfifFb8rVLI1jSXODQO0lXQrjDoonbKfZwNTPAon789lXPR99Nri8zjJEdOIwe4lwP3Kbavr4W0BkZIx7TkhzXAg4UW6K6cGhuN1OC6sqeEOx9ln/8Afgs2RI1Yse2z36P0tUWEXupqSw3O93OV4cDnhjLyIh7G5crQZGynhjhiGGRtDGjuAGAuFZIfTLi+qO8VIDGzxkI9Y+wbf1Fd4lW0R1Hf3KsqfKWvsLKSCgrSZQSTSQAUIKEAI2QkgMEIQgBCSaAaRQnhAYlYuGyzSIUA8FVFxtIUC1TaQ4PPDsVY0jNlxrvQNqIXAhVzjtHUXpnzbeaA2+veQ3DHkkeB7Qt0N06mp9EBy8MZLHINuJpGxHkQQfFpU31bp0TNkaWkHmCBuD3quZqR0jvQpy2OeJ5dDI7YAnm0n+F2Bv2EA9+fMtr0z28a/lH8l8dG/SUysjjtN3lxN9WKd2wf4HxVmOAIyNwe1fIUE9RRDilZIYmHhLiMOjcOYd3Y71b+gelV1NHHQ3l5kg2DKgndnn+KuoyePssKMrDUv3Kv/C2sJFOCeCtgbPTSsljcMhzTkFMtIXoJ7PKa0ayFpkj4l6CFiQhBwbrZoq1hDm796r3UWhRNxER7jcObzVuujBXnlo2PGC0FcTrUiyFji9o+eau1XK2Hh6t07B2jZ3t711bBra5afLWw1RZnbqpTj4FW9V6bpanPFC0nyXGq+j6hnzmMb+CyPFae4s3Rzk1xsWzz0HS3xNa2qoGvdjdzHY/FdE9JtC5uW0MmT3ytA+S4o6J7W5x+jDc/wjC9EXRbYKb15KVkmB9vcfFdqN/3K5Txn54mNx6U6eBpMlVbaEeMhqH/AOhoCi9i1x/by+z0VPBW1tHREPqrjXfRU0XbwsibjicR/Fy5leXV9HDcK+LS2nKaCGSfPWysYA2Bg5vOO74nC69XDadDabhsdFwRU0LetqXu+tJ/Me0vI38AR2hVTbb03suqUUuUY6ObrS7vngit1Ixzqmuk4YIm7EcWA0Y7NuHPcpvbLb+xLVQ2ii4XVAaIY+Hk+Q7ueR3Zy4+ChOgbZPcamo1pdmuiicC2hZIMcMf2pT58h7fBWzp22yRg3KrYWTyt4Yo3DeGPnv8A4jsT7B2JCDnL8HVs1VD8nToaOO3UUVLES4Rjdx5vcdy4+JOT7VtTPNJeilo8pvfkEZQkpIBJNCASYQhAJJNCgGvKe6SeVIEmEspoBpIQgBJNCgGDhleaePiHJeta3NyoBFL7aW1DHEN3VU6q0y57jJG3EjM4z8j4K954A4HIUbvdiZUNc5rRnCpsrUkXVWuD2iiKKtdDMIaljWTRgMPGdntHJrj8ndnI7cuq6ydbHJU2lwa7Pr079gD/AOp+B+K6updKdY4uDeCUcnY/WyjdHcq2wTtZK0+oMNPPib3DvHgfhzXnyhx8S6PXru5+Y+GdvTuubxpap6uJ8kJH1qWYYa7xHf5hWjZOmezVrWx3ON9HLjdwHExQG3VFm1XD1dX1ET8jaT6hPmd2nz9hKK7otqmkuoqiWPi3DXjjbjwPP4ldQdkPke0c2+lY/wB1aZc8Gr9O1bA+K8UeD/FIG/NY1Oq7BSML5rxQNb/5mn5KiD0eXwP4RFDIR25cPuXroui7UFVJiZ1PBH3jLj7sBXLItf8AEzvFpXnmWbW9LWmqV/BC+oqz3xR+r7ylR9LVjqn8L6ephHLiIBUJHRRLDH61XNK/vHqj3Bci56PuFvH0U0zOHlk8QPmCjsv7CrxuvJfVuuNDd4RNRVDJWkcgdx7F6HR47F86WjVtVpuqHXO9FmztK3PVP89/V9vvVn27pcofRA+6R9W4AZfGQQfFWQyl1PwyqzCfdflE3k4WDKg2uNXC3Reh0gMtZN6scbTvn7kr/wBJVu/Z7ZKBzpJZ25YwjBHn3KvIY5aqvfVVEolnkPrPzyHcPBRdkpLUScbDlJ7n0dizth0zRVFxq3NkqZPXlke7HWO7Gg9jR+JXPs9oq9c1guVz+gsULjKTJ6prX9+/1Yxj3AAd67Lrfa69lJDcIeuEMokiYQ49Y/BHDwj63Plg8lPbPp2Sp6uqu0LY2MwYqLOQMcjJjYnubyHieWaqEpmy6yFS39R2W0+nmGsqIjHQxYNNAW46wjk9w7Gj7LfaexSUuykXZSXpQgorSPHssc3tjRlJCsOBpFCCUAIykhAAQUBCAEISz4oDBHNARlACEIQDQhJANCEIASITQoBqczK0S04cDsvWQkWqNAjV0scdW0gtGVB77o1sjXNfCHs8lbD4gexeWeiZIN2griVaZ3Gbj0fOV00xcLbN1lG57mN3wDhzfIr2WDpDven5BE+Rzo2neF4x/tO3ux5q6K/TUFQD6gBUWu/R/FVAh0LJB4hZJY7XmJuhmJrVi2e2wdMNgruGO5QiikP2h9Uny7PeVN6S92OvYHUtxpHg8hxgFUTcOjiWAn0frGHucOIfj8Vxzpa+UL8xMae4tLmlR6tse1s7dWPZ5T0fS5ZA8ZbLG4eDgVzq+lonMJnlgY3vc8BfPfoupo/VYyqGeeJR+KRsWoaxwD6SpkPYXOB+9dfEyf8AE5+Dgv5lh6mk0dTteXVcVTKP7um+kOe7bYe0qsJYIqmqdLSRMt0ByOBuDMR/MNm+zJ8V2qHo61HWuBFKyLPbI/7gpfZuhuV/A65VzsDmyEY+Jyq2rJ9LRbH0avmlsg9E1tOOqicGtG5HFkk+OdyVNdMaRvd0LZGQejU7v76oGMjwbzPwCsGxaFstjIfT0UbpR/eyeu73lSNrQ3kF3Xh/WbK7f1DfitHIsOlaGxASMDqiqIwambd+O5vY0eAXazlJC3RiorSPOlJye2CEJLo5GhJNACSaSAEYQhACEkZQAUsppE4QGKEFCAEIQgGhJCAaEIQAhCEABGEJ4QGJGUi0LNLCjQNZjBC1up2nmF6cJcKA8T6CN/NgWh1ngdzjb7l1AEYUaJOU2x0uc9U33Ley1wMOzB7l7sJ4TQ2aWUrGcmgLa1gAWQTU6IAIQhANJNCkCQEIQDSQhANJCSAaSfYkEAIQkgBBRuhAYpJpIBoSR2oBppIQDTWKaAEISQDJABJIAG5JWn0+ix/ztN/91v4rl6vkczTtwIOPoH/JVxpU6DdZLYyvtM89c+Nolc2ike1zv5gMFU2WOLSL66uSbLhBDgHNIIO4IOxWqaspaZ7WT1METnfVbJIGk+WVi5opKQRU0bWtjZwxsHIADYKoqWpsFLWV0GuKCqNwmqHvbXSML2Fh+qAR9XASyxx0RVXzbLm7Ae9aXVlKxxa6qpw4HBBkAIPvXkscFHBZqWO31DqikDPopXSF5c3zKr7pR0zaqG3ivpqOOKplqmF8ozl2Xb5Uym1HkiIQUp8WWdHUQTOLYp4pHDchjwSPcsaiqhpYy+WRjB2cTgM+WV4LPpi0WEmS3UMVPJIwNc9ucuHPCh/SJJSf2isH7Ra6SkbJIZWNaXcTccsDcqJTcY7YjBSnxRLdP3GtuImqKx1LCyV59HpmODpGMHa8gnc88DkurJNFCAZZY4wdgXuAz71F9KxaWfXPkstvkhqGMLusfA9mAdiAT5rrXyx268xN9PpWVHVZLOLPqnwSDbiLElLXR0BV03L0mDP/AJB+K2uc1jS5zg1oGSScABVx0eaZtdwguEtXSNndT1r44i8n1W9g58lJdfvLdI3THL0d4+CRm3HkxOEVJRTJE1we0OaQ5pGQQcgpSTRwt45ZGRt5Ze4AfFcrTUoZpa3SHkKZp+Cj+naFmtfSrzdczRid8NPBxHgiaD3Dt/Xcpdnha7YVa299Im7HskaHse17TyLTkJrk2bTtNY5Zn0stQI5cfQOkJjZ4gd68mtLtNbrQ6Kkya2rcKaADnxO2z7Bk+xdctR3I547lqJ32vZI0PY9r2ntachB5qGaBnktdfcdM1UzXPpyJ4B/lkYx7CCpoQohPktk2Q4vQIQhWFYISQgBAQlyQDKSOaEA0soSIQGOUIRhACaSEBl2JIQoAIQhACEDkhSDj6ppZa6x1lNBGZJJYnNa0dpIUW03dNSWKx0Fr/sbLK6lhEfWemMbxEdvLZWDhIkNGVVKG3vZZGelrWzSyWV9IyR8PVzOYC6IuzwuxyyOag1bPqmspp7fXaVpq+Zxc2OpZM1kZBO3E07jHgpHbNW0lzq6enFHWwNqus9HmlY3gmLM8QBBJHI8wOS3SahYLtLbILfWVMsJZ1j4+AMZxjI+s4Hl3BRLUl2TFOL6NWiLDPprTVNbaqVkk7C57+D6rS454R4Bc/pEsldfbRHTUEHXTCdj8ZA2Bydyu5cr3Fbp4qVlPU1lVK0vbBTNBdwDGXHJAA3A3O6yrL1BQ2c3SeGoZGGhxiczEgJOMYJ55Pep1HjxClLkp/U6GfVHfgBQrWVtuUt+stzoLe6tbQyukfG14YTkYxkqUUtydUU01RPRVNG2LOWzcOSAMkjhJXlt2prbdmUD6Rz5BXB5Zt9QsGXB3cQktSWiI8ovaRrtN7u1bVNhqdPS0MBBLpnVDHBu22w3XXqAXRuA7Quc2/Mkuc1vgoauZ8D2xyyN4Axhc0O7XA8j3LG7alprRUPglpqubqoPSZXwsBEcecZOSD2diJpLyw4tvwjw6DtFbaKW5NrYTEZ6x0seXA8TTyO3JevWFBUXPT1dR0sfWTTRFrG5xkle2uvFJb7W+5yvLqYRiQFoyXg8gB2k5AA8UG6xPtkVxp4ZqqKVjZGNiA4i0+ZA27USSXENyb5Gqx0UlLp2ho52FkscDWPbkHBxuNlHLXTXnR1dVQUtA642uokMzWxvDXxOPPnzBUjoL7FXWx9y9FqYKZsXXNdKG5kbjOQAT8cLY680zGW97myBle5rYnEDDS5vE3i7s8vMqOKaXknlJN7XZptFTeaueWe4UsNHTFuIqfi4pM/xEjb2Lk3PT1TqHU7JKxksdspID1TmycJkldzxjcYHb5rv0d0pq1tU+IuEdLK6F73DDS5o9bHgOXmCsbLeKS/UDa6ic4wuc5uHjDgQe0e4+RCnimuLYUpJ8ktEVqdJVNkvtvulijmlDHltRE6QEvYR3u7vNTknKSF1GCj0cym5fMGUISXZwMoQhAJCEIAQhCACkhCAxRySTQDCEkIBoCSFAHlCSaAEIQUAJObxAhNCAjNi0TDYLhDW087XSBkjJ+NhPHxOLgW5PqEctuYTm0pMdRTXiJ9uc6V0bh6TSmR8XAMeo7iGM+SkyFz6a1o79SW97OJd7BPW1/p1HUwwyvgdSzMmiMjJYyc4IBBBz2grTJpL/AOInT7Kri2/fSMyMl/H9XPLsxnkpCCmnBDm9aOTQWiWmtc9DL6CwS8QHolOYmjIxkguOSvFbNHRWq5UFbBUECmp+pljDcNmfwBnWc9jgeOdu5SNBTghzfkjrNMzQ3+ousUlA4zyskPXUxfJGA0Nw13EMcu7tS1Do6LUNXJUTVBj/AOHEUYAPquD+LiO+HDs4SN1IkJ6cdaHOW97OVdrG68xUcFRUmKKB4lkEA4S97R6uP4QDv28gsrJZjZrbJb2VDpYg97oeMesxrt+Ent3JOfFdQIU8VvZHJ60cyms3o+m2WbruMtpjT9bw4zkEZxnxWFdYRWafjtXXcEkUUbI5w3dj2Y4XgeBAOF1kJxQ5Ps48mns6dbZIql0TS0MlmA9Z4JzIfN2Xb9mVnZrCLLV1b4amR9PU8LjFJuWvAxxA9xAAxjsC6qajguxzfQFCMpFdnIJpBGUAIQUIAzsgJJhACSEIASymkoAkk8pFSBjdCAhACMoQgDmU0ihANCSEA0BCFAGhJCkDTWKaAeUFLKOaAE0kZQDCCUkIBoQkgGhJNABQhJANCSaAEkIQDQkhACSfJCASPYhLKgCQUIKAEBGUIBoSymmwGEJEoygHyQhCAaAkn2IAQmFjlANNJCAaOxLKEA+xCSYQAmllCAaSeUkAIQjtUgaSChANCSFABPdJHYgBCWU0AISR3IAQhJAf/9k=';
 
-function gerarResumo(){
-  const nome = document.getElementById('nome').value.trim();
-  const aceite = document.getElementById('aceite').checked;
-  if(!nome){ alert('Por favor, informe seu nome completo.'); return; }
-  if(!aceite){ alert('Por favor, aceite o termo de consentimento para continuar.'); return; }
+const get = id => document.getElementById(id)?.value?.trim() || '';
+const radio = n => { const e = document.querySelector(`input[name="${n}"]:checked`); return e ? e.value : ''; };
+const checks = n => [...document.querySelectorAll(`input[name="${n}"]:checked`)].map(e=>e.value).join(', ');
+const idade = d => { if(!d) return ''; const h=new Date(),n=new Date(d); let i=h.getFullYear()-n.getFullYear(); if(h.getMonth()-n.getMonth()<0||(h.getMonth()-n.getMonth()===0&&h.getDate()<n.getDate())) i--; return ` (${i} anos)`; };
 
-  const get = id => document.getElementById(id)?.value?.trim() || '—';
-  const radios = name => { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : '—'; };
-  const checks = name => { const els = document.querySelectorAll(`input[name="${name}"]:checked`); return els.length ? Array.from(els).map(e=>e.value).join(', ') : '—'; };
+let dadosGlobais = null;
 
-  const agora = new Date().toLocaleString('pt-BR');
-  const nascimento = get('dataNasc');
-  const idade = nascimento && nascimento !== '—' ? calcularIdade(nascimento) + ' anos' : '—';
-
-  const resumo = `🌿 FICHA DE ANAMNESE — RC Estética Regenerativa
-Data de preenchimento: ${agora}
-
-━━━ DADOS PESSOAIS ━━━
-Nome: ${nome}
-Data de nasc.: ${nascimento} (${idade})
-CPF: ${get('cpf')}
-Telefone: ${get('telefone')}
-E-mail: ${get('email')}
-Profissão: ${get('profissao')}
-Como nos conheceu: ${radios('indicacao')}
-
-━━━ SAÚDE GERAL ━━━
-Doenças/condições: ${checks('doenca')}${get('outraDoenca') !== '—' ? ', ' + get('outraDoenca') : ''}
-Medicamentos contínuos: ${radios('medicamentos')}
-Quais medicamentos: ${get('medicamentos')}
-Alergias: ${radios('alergia')}
-Quais alergias: ${get('alergias')}
-Gestante/amamentando: ${radios('gestante')}
-Cirurgia recente: ${radios('cirurgia')}${get('cirurgia') !== '—' ? ' — ' + get('cirurgia') : ''}
-
-━━━ PELE E CABELO ━━━
-Tipo de pele: ${radios('tipoPele')}
-Principais queixas: ${checks('queixa')}
-Protetor solar: ${radios('protetor')}
-Ácidos/ativos na rotina: ${radios('acidos')}${get('rotinaPele') !== '—' ? ' — ' + get('rotinaPele') : ''}
-Procedimento recente: ${radios('procRecente')}${get('procRecente') !== '—' ? ' — ' + get('procRecente') : ''}
-Histórico de queloide: ${radios('queloide')}
-
-━━━ ESTILO DE VIDA ━━━
-Atividade física: ${radios('atividade')}
-Fuma: ${radios('fuma')}
-Estresse: ${radios('estresse')}
-
-━━━ OBSERVAÇÕES ━━━
-${get('obs')}
-
-━━━ CONSENTIMENTO ━━━
-✅ Aceite LGPD confirmado em ${agora}
-Informações declaradas como verdadeiras pela paciente.`;
-
-  document.getElementById('textoResumo').textContent = resumo;
-  document.getElementById('resultado').style.display = 'block';
-  document.getElementById('resultado').scrollIntoView({behavior:'smooth'});
+function coletarDados() {
+  return {
+    nome: get('nome'), dataNasc: get('dataNasc'), cpf: get('cpf'),
+    tel: get('tel'), email: get('email'), profissao: get('profissao'),
+    indicacao: get('indicacao'),
+    doencas: checks('doenca') + (get('outraDoenca') ? ', ' + get('outraDoenca') : ''),
+    cirurgias: get('cirurgias'), medicamentos: get('medicamentos'),
+    alergias: get('alergias'), gestante: radio('gestante'),
+    tipoPele: get('tipoPele'), fototipo: get('fototipo'),
+    queixa: checks('queixa'), doencasPele: get('doencasPele'),
+    protetor: radio('protetor'), rotinaAtivos: get('rotinaAtivos'),
+    procRecente: get('procRecente'), queloide: radio('queloide'),
+    atividade: radio('atividade'), fuma: radio('fuma'),
+    estresse: radio('estresse'), obs: get('obs'),
+    aceiteData: new Date().toLocaleString('pt-BR')
+  };
 }
 
-function calcularIdade(dataNasc){
-  const hoje = new Date();
-  const nasc = new Date(dataNasc);
-  let idade = hoje.getFullYear() - nasc.getFullYear();
-  const m = hoje.getMonth() - nasc.getMonth();
-  if(m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
-  return idade;
+function gerarCodigo(dados) {
+  // Codifica os dados em base64 comprimido — funciona entre dispositivos
+  const json = JSON.stringify(dados);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  // Prefixo legível + dados codificados
+  const prefixo = 'ANA-' + new Date().getFullYear() + '-';
+  const sufixo = Math.random().toString(36).slice(2,6).toUpperCase();
+  return prefixo + sufixo + '|' + b64;
 }
 
-function copiarResumo(){
-  const texto = document.getElementById('textoResumo').textContent;
-  navigator.clipboard.writeText(texto).then(()=>{
-    const btn = document.querySelector('.btn-copiar');
-    btn.textContent = '✔ Copiado!';
-    setTimeout(()=>{ btn.textContent = '📋 Copiar texto'; }, 2500);
-  }).catch(()=>{
-    const ta = document.createElement('textarea');
-    ta.value = texto; document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
+function gerar() {
+  const nome = get('nome');
+  if(!nome) { alert('Por favor, informe seu nome completo.'); return; }
+  if(!get('tel')) { alert('Por favor, informe seu telefone.'); return; }
+  if(!document.getElementById('aceite').checked) { alert('Por favor, aceite o termo de consentimento.'); return; }
+
+  dadosGlobais = coletarDados();
+  const codigo = gerarCodigo(dadosGlobais);
+
+  document.getElementById('codigoExibido').textContent = codigo;
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+}
+
+function copiarCodigo() {
+  const cod = document.getElementById('codigoExibido').textContent;
+  navigator.clipboard.writeText(cod).then(() => {
+    const b = document.querySelector('.btn-ghost');
+    b.textContent = '✔ Copiado!';
+    setTimeout(() => { b.textContent = '📋 Copiar código'; }, 2500);
   });
+}
+
+function gerarPDF() {
+  if(!dadosGlobais) { alert('Por favor, clique em "Gerar PDF + Código" primeiro.'); return; }
+  const d = dadosGlobais;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const copper = [181, 112, 63];
+  const cream = [74, 47, 34];
+  const dimmed = [138, 101, 82];
+  const bgCard = [253, 245, 242];
+  const W = 210, M = 18;
+
+  let y = 15;
+
+  // Header
+  doc.setFillColor(253, 245, 242);
+  doc.roundedRect(M, y, W - M*2, 28, 3, 3, 'F');
+  doc.setFont('times', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...copper);
+  doc.text('RC Estética Regenerativa', W/2, y + 10, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...dimmed);
+  doc.text('Ficha de Anamnese — Documento Clínico Confidencial', W/2, y + 17, { align: 'center' });
+  doc.text(`Preenchida em: ${d.aceiteData}`, W/2, y + 23, { align: 'center' });
+  y += 34;
+
+  function secao(titulo) {
+    doc.setFillColor(...copper);
+    doc.rect(M, y, W - M*2, 6, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(titulo.toUpperCase(), M + 3, y + 4);
+    y += 9;
+    doc.setTextColor(...cream);
+  }
+
+  function campo(label, valor, fullWidth) {
+    if(!valor) valor = '—';
+    const linhas = doc.splitTextToSize(valor, fullWidth ? W - M*2 - 3 : (W - M*2)/2 - 5);
+    const h = Math.max(8, linhas.length * 4 + 4);
+    if(y + h > 270) { doc.addPage(); y = 15; }
+    doc.setFillColor(...bgCard);
+    doc.roundedRect(M, y, fullWidth ? W - M*2 : (W - M*2)/2 - 2, h, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...dimmed);
+    doc.text(label.toUpperCase(), M + 2.5, y + 3.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...cream);
+    doc.text(linhas, M + 2.5, y + 7);
+    if(!fullWidth) return h;
+    y += h + 2;
+    return h;
+  }
+
+  function camposDuplos(dados) {
+    const maxH = Math.max(
+      calcH(dados[0][1], (W - M*2)/2 - 5),
+      calcH(dados[1][1], (W - M*2)/2 - 5)
+    );
+    if(y + maxH > 270) { doc.addPage(); y = 15; }
+    [0, 1].forEach((i) => {
+      const xOff = i === 0 ? M : M + (W - M*2)/2 + 2;
+      const val = dados[i][1] || '—';
+      const linhas = doc.splitTextToSize(val, (W - M*2)/2 - 5);
+      doc.setFillColor(...bgCard);
+      doc.roundedRect(xOff, y, (W - M*2)/2 - 2, maxH, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...dimmed);
+      doc.text(dados[i][0].toUpperCase(), xOff + 2.5, y + 3.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...cream);
+      doc.text(linhas, xOff + 2.5, y + 7);
+    });
+    y += maxH + 2;
+  }
+
+  function calcH(val, w) {
+    if(!val) val = '—';
+    return Math.max(8, doc.splitTextToSize(val, w).length * 4 + 4);
+  }
+
+  // DADOS PESSOAIS
+  secao('Dados Pessoais');
+  campo('Nome completo', d.nome, true);
+  camposDuplos([['Data de nascimento', d.dataNasc + idade(d.dataNasc)], ['CPF', d.cpf]]);
+  camposDuplos([['Telefone / WhatsApp', d.tel], ['E-mail', d.email]]);
+  camposDuplos([['Profissão', d.profissao], ['Como nos conheceu', d.indicacao]]);
+  y += 3;
+
+  // SAÚDE GERAL
+  secao('Saúde Geral');
+  campo('Doenças crônicas', d.doencas, true);
+  campo('Cirurgias recentes / cicatrização', d.cirurgias || '—', true);
+  campo('Medicamentos de uso contínuo', d.medicamentos || '—', true);
+  campo('Alergias conhecidas', d.alergias || '—', true);
+  campo('Gestante / amamentando', d.gestante || '—', true);
+  y += 3;
+
+  // PELE E CABELO
+  secao('Pele e Cabelo');
+  camposDuplos([['Tipo de pele', d.tipoPele], ['Fototipo (Fitzpatrick)', d.fototipo]]);
+  campo('Queixa principal / objetivo', d.queixa || '—', true);
+  campo('Doenças de pele', d.doencasPele || '—', true);
+  campo('Protetor solar', d.protetor || '—', true);
+  campo('Ácidos e ativos na rotina', d.rotinaAtivos || '—', true);
+  campo('Procedimento recente (30 dias)', d.procRecente || '—', true);
+  campo('Histórico de queloide', d.queloide || '—', true);
+  y += 3;
+
+  // ESTILO DE VIDA
+  secao('Estilo de Vida');
+  camposDuplos([['Atividade física', d.atividade], ['Fuma', d.fuma]]);
+  campo('Nível de estresse', d.estresse || '—', true);
+  if(d.obs) campo('Observações adicionais', d.obs, true);
+  y += 3;
+
+  // LGPD + ASSINATURA
+  if(y + 45 > 270) { doc.addPage(); y = 15; }
+  secao('Consentimento — LGPD');
+  doc.setFillColor(...bgCard);
+  doc.roundedRect(M, y, W - M*2, 22, 1.5, 1.5, 'F');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...dimmed);
+  const lgpdTexto = 'Declaro que li e concordo com o tratamento dos meus dados pessoais e de saúde pela RC Estética Regenerativa, conforme a Lei 13.709/2018 (LGPD), exclusivamente para fins de avaliação clínica e execução dos procedimentos estéticos. Confirmo que as informações prestadas são verdadeiras e completas.';
+  const lgpdLinhas = doc.splitTextToSize(lgpdTexto, W - M*2 - 6);
+  doc.text(lgpdLinhas, M + 3, y + 5);
+  y += 25;
+
+  // Assinatura
+  doc.setDrawColor(...copper);
+  doc.line(M, y + 8, M + 80, y + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...dimmed);
+  doc.text(`Assinatura: ${d.nome}`, M, y + 13);
+  doc.text(`Data: ${d.aceiteData}`, M + 90, y + 13);
+  y += 20;
+
+  // Código de importação
+  if(y + 20 > 270) { doc.addPage(); y = 15; }
+  const codigo = document.getElementById('codigoExibido').textContent;
+  doc.setFillColor(253, 240, 232);
+  doc.roundedRect(M, y, W - M*2, 18, 2, 2, 'F');
+  doc.setDrawColor(...copper);
+  doc.roundedRect(M, y, W - M*2, 18, 2, 2, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...copper);
+  doc.text('CÓDIGO DE IMPORTAÇÃO — Informe à Raquel para importar automaticamente no sistema:', M + 3, y + 5);
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...cream);
+  const codigoLinhas = doc.splitTextToSize(codigo, W - M*2 - 6);
+  doc.text(codigoLinhas, M + 3, y + 11);
+
+  // Rodapé
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...dimmed);
+  doc.text('RC Estética Regenerativa · (11) 98112-6897 · rmr.biomedi@gmail.com · Documento confidencial — uso clínico exclusivo', W/2, 290, { align: 'center' });
+
+  doc.save(`Anamnese-RC-${d.nome.replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.pdf`);
 }
 </script>
 </body>

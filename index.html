@@ -609,6 +609,16 @@ function prontuarioAnamnese(cli){
     </div>
 
     <h3 style="font-size:.8rem; color:var(--copper-light); text-transform:uppercase; letter-spacing:.5px; margin-top:14px;">Histórico de saúde</h3>
+    <div class="card" style="background:var(--bg-elev); margin-bottom:14px; box-shadow:none; border:1.5px dashed var(--copper);">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:200px;">
+          <label style="font-size:.75rem; text-transform:uppercase; letter-spacing:.4px; color:var(--copper-light); font-weight:700; display:block; margin-bottom:6px;">📋 Importar ficha de anamnese digital</label>
+          <input id="codigoImport" placeholder="Cole aqui o código ANA-XXXX-XXXX|... enviado pela paciente" style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:8px; font-size:.82rem; background:#fff8f5; font-family:monospace;">
+        </div>
+        <button class="btn" onclick="importarFicha()" style="margin-top:18px; padding:9px 18px; white-space:nowrap;">Importar dados</button>
+      </div>
+      <p style="font-size:.74rem; color:var(--cream-dim); margin-top:8px; font-style:italic;">A paciente recebe o código ao gerar o PDF da ficha. Cole aqui e clique em Importar — todos os campos são preenchidos automaticamente.</p>
+    </div>
     <div class="field"><label>Histórico de saúde geral</label><textarea id="anHistoricoSaude" rows="2" placeholder="Resumo geral de saúde do paciente">${a.historicoSaude||''}</textarea></div>
     <div class="grid cols-2">
       <div class="field"><label>Doenças crônicas (diabetes, hipertensão, tireoide...)</label><textarea id="anDoencasCronicas" rows="2">${a.doencasCronicas||''}</textarea></div>
@@ -1828,6 +1838,50 @@ async function removerUsuario(usuario){
   await sSet('usuarios', DB.usuarios);
   render('usuarios'); toast('Usuário removido');
 }
+async function importarFicha(){
+  const cod = document.getElementById('codigoImport')?.value.trim();
+  if(!cod){ toast('Cole o código da ficha no campo acima'); return; }
+  try{
+    const partes = cod.split('|');
+    if(partes.length < 2) throw new Error('Código inválido');
+    const b64 = partes[1];
+    const json = decodeURIComponent(escape(atob(b64)));
+    const d = JSON.parse(json);
+    // Preenche os campos da anamnese
+    const set = (id, val) => { const el=document.getElementById(id); if(el && val) el.value=val; };
+    set('anDoencasCronicas', d.doencas);
+    set('anCirurgias', d.cirurgias);
+    set('anMedicamentos', d.medicamentos);
+    set('anAlergias', d.alergias);
+    set('anQueixa', d.queixa);
+    set('anDoencas', d.doencasPele);
+    set('anHistoricoSaude', d.obs);
+    set('anRotina', d.rotinaAtivos);
+    // gestante
+    const gestEl = document.getElementById('anGestante');
+    if(gestEl && d.gestante){
+      const map = {'Não':'nao','Gestante':'sim','Amamentando':'sim','Possível':'talvez'};
+      gestEl.value = map[d.gestante] || 'nao';
+    }
+    // tipo de pele
+    const tpEl = document.getElementById('anTipoPele');
+    if(tpEl && d.tipoPele) tpEl.value = d.tipoPele;
+    // fototipo
+    const ftEl = document.getElementById('anFototipo');
+    if(ftEl && d.fototipo){
+      const ft = d.fototipo.split('—')[0].trim();
+      Array.from(ftEl.options).forEach(o=>{ if(o.value===ft) ftEl.value=ft; });
+    }
+    // termo LGPD
+    const termoEl = document.getElementById('anTermo');
+    if(termoEl) termoEl.value = 'sim';
+    toast('✅ Ficha importada com sucesso! Revise os campos e salve.');
+    document.getElementById('codigoImport').value = '';
+  }catch(e){
+    toast('Código inválido ou corrompido. Peça a paciente para gerar novamente.');
+  }
+}
+
 async function salvarConfig(){
   DB.config.parcelaCartao = Number(document.getElementById('cfgCartao').value)||0;
   DB.config.marketing = Number(document.getElementById('cfgMarketing').value)||0;
