@@ -4,7 +4,47 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ficha de Anamnese — RC Estética Regenerativa</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+/* ============ ASSINATURA ELETRÔNICA ============ */
+let assinaturaVazia = true;
+
+(function(){
+  function setup(){
+    const canvas = document.getElementById('canvasAssinatura');
+    if(!canvas){ setTimeout(setup,300); return; }
+    const dpr = window.devicePixelRatio||1;
+    const r = canvas.getBoundingClientRect();
+    canvas.width = r.width * dpr;
+    canvas.height = r.height * dpr;
+    canvas.style.width = r.width+'px';
+    canvas.style.height = r.height+'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr,dpr);
+    ctx.strokeStyle='#2c1810'; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round';
+    let pen=false;
+    function pt(e){ const b=canvas.getBoundingClientRect(); return e.touches?{x:e.touches[0].clientX-b.left,y:e.touches[0].clientY-b.top}:{x:e.clientX-b.left,y:e.clientY-b.top}; }
+    function dn(e){ e.preventDefault(); pen=true; const p=pt(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
+    function mv(e){ e.preventDefault(); if(!pen)return; const p=pt(e); ctx.lineTo(p.x,p.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x,p.y); assinaturaVazia=false; }
+    function up(e){ e.preventDefault(); pen=false; ctx.beginPath(); }
+    canvas.addEventListener('mousedown',dn); canvas.addEventListener('mousemove',mv);
+    canvas.addEventListener('mouseup',up); canvas.addEventListener('mouseleave',up);
+    canvas.addEventListener('touchstart',dn,{passive:false}); canvas.addEventListener('touchmove',mv,{passive:false});
+    canvas.addEventListener('touchend',up,{passive:false}); canvas.addEventListener('touchcancel',up,{passive:false});
+    window._sc=canvas; window._sx=ctx; window._sd=dpr;
+  }
+  if(document.readyState==='complete') setup(); else window.addEventListener('load',setup);
+})();
+
+function limparAssinatura(){
+  const c=window._sc,x=window._sx,d=window._sd||1;
+  if(!c||!x)return;
+  x.clearRect(0,0,c.width/d,c.height/d);
+  assinaturaVazia=true;
+}
+function obterAssinaturaBase64(){
+  return (!window._sc||assinaturaVazia)?null:window._sc.toDataURL('image/png');
+}
+</script>
 <style>
   :root{
     --bg:#f6e1da;--bg-card:#fdf5f2;--line:#e0b6a5;
