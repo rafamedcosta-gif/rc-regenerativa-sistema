@@ -51,6 +51,7 @@
   .btn-row .btn{margin:0;flex:1;min-width:140px;}
   .req{color:var(--bad);}
   .note{font-size:.74rem;color:var(--cream-dim);margin-top:6px;font-style:italic;}
+  #canvasAssinatura{display:block;touch-action:none;}
 </style>
 </head>
 <body>
@@ -202,17 +203,32 @@
 </div>
 
 <div class="card">
-  <div class="sec">Consentimento — LGPD</div>
-  <div class="lgpd">
-    <b>Termo de consentimento para tratamento de dados (LGPD — Lei 13.709/2018):</b><br><br>
-    Seus dados pessoais e de saúde são coletados exclusivamente para avaliação clínica e execução dos procedimentos estéticos pela <b>RC Estética Regenerativa</b>, sob responsabilidade da biomédica Raquel Casarini.<br><br>
-    Os dados são tratados com <b>sigilo total</b>, não são compartilhados com terceiros e você pode solicitar acesso, correção ou exclusão a qualquer momento pelo WhatsApp <b>(11) 98112-6897</b> ou e-mail <b>rmr.biomedi@gmail.com</b>.<br><br>
-    O preenchimento desta ficha constitui <b>consentimento livre e informado</b> nos termos do art. 7º, I da LGPD.
+  <div class="sec">Termo de Consentimento para Procedimentos Estéticos</div>
+  <div class="lgpd" style="max-height:280px;overflow-y:auto;font-size:.8rem;line-height:1.7;">
+    <b>TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO</b><br><br>
+    Eu, paciente identificado(a) nesta ficha, declaro que fui devidamente informado(a) sobre os procedimentos estéticos a serem realizados pela biomédica <b>Raquel Casarini</b> (inscrita no CFBio), na <b>RC Estética Regenerativa</b>, e manifesto meu consentimento livre, voluntário e esclarecido.<br><br>
+    <b>1. Procedimentos e objetivos:</b> Compreendo que os procedimentos estéticos (microagulhamento, limpeza de pele, peeling, terapia capilar e outros) têm caráter estético e de bem-estar, e que os resultados podem variar de pessoa para pessoa.<br><br>
+    <b>2. Riscos e efeitos esperados:</b> Fui informado(a) sobre possíveis reações como vermelhidão, sensibilidade, descamação e outros efeitos transitórios normais dos procedimentos. Comprometendo-me a comunicar imediatamente qualquer reação inesperada.<br><br>
+    <b>3. Obrigações do paciente:</b> Comprometo-me a informar verazmente meu estado de saúde, medicamentos em uso e histórico clínico. Sei que omissões podem comprometer minha segurança e isentar a profissional de responsabilidade por complicações decorrentes de informações incorretas ou omitidas.<br><br>
+    <b>4. Fotografias:</b> Autorizo o registro fotográfico do meu rosto/couro cabeludo antes, durante e após os procedimentos, exclusivamente para fins de acompanhamento clínico e evolução do tratamento, vedado o uso para fins comerciais sem minha autorização expressa.<br><br>
+    <b>5. Tratamento de dados (LGPD — Lei 13.709/2018):</b> Meus dados pessoais e de saúde são coletados exclusivamente para avaliação clínica e execução dos procedimentos. São tratados com sigilo total, não compartilhados com terceiros. Posso solicitar acesso, correção ou exclusão a qualquer momento pelo WhatsApp <b>(11) 98112-6897</b> ou e-mail <b>rmr.biomedi@gmail.com</b>.<br><br>
+    <b>6. Consentimento:</b> Ao assinar esta ficha, confirmo que li, compreendi e concordo com todas as cláusulas acima, que as informações prestadas são verdadeiras e que o consentimento é dado de forma livre e espontânea.
   </div>
-  <label class="aceite">
+  <label class="aceite" style="margin-top:14px;">
     <input type="checkbox" id="aceite" required>
-    <span>Li e concordo com o tratamento dos meus dados conforme descrito acima. Confirmo que as informações preenchidas são verdadeiras e completas, e estou ciente de que omissões podem comprometer a segurança do meu atendimento.</span>
+    <span>Li o termo acima na íntegra, concordo com todas as cláusulas e confirmo que as informações preenchidas são verdadeiras e completas.</span>
   </label>
+</div>
+
+<div class="card">
+  <div class="sec">Assinatura eletrônica</div>
+  <p style="font-size:.82rem;color:var(--cream-dim);margin-bottom:12px;">Assine com o dedo ou mouse no campo abaixo. Sua assinatura será incluída no PDF como comprovante de concordância com o termo de consentimento.</p>
+  <canvas id="canvasAssinatura" width="600" height="160"
+    style="width:100%;height:160px;border:2px solid var(--line);border-radius:10px;background:#fff8f5;touch-action:none;cursor:crosshair;"></canvas>
+  <div style="display:flex;gap:8px;margin-top:8px;">
+    <button type="button" class="btn ghost" style="flex:1;padding:8px;" onclick="limparAssinatura()">🗑️ Limpar assinatura</button>
+  </div>
+  <p class="note" style="margin-top:6px;">Assine usando o dedo (celular) ou o mouse (computador). A assinatura comprova o aceite do termo de consentimento.</p>
 </div>
 
 <button class="btn" onclick="gerar()">✅ Gerar PDF + Código de importação</button>
@@ -273,7 +289,8 @@ function gerar() {
   const nome = get('nome');
   if(!nome) { alert('Por favor, informe seu nome completo.'); return; }
   if(!get('tel')) { alert('Por favor, informe seu telefone.'); return; }
-  if(!document.getElementById('aceite').checked) { alert('Por favor, aceite o termo de consentimento.'); return; }
+  if(!document.getElementById('aceite').checked) { alert('Por favor, leia e aceite o termo de consentimento.'); return; }
+  if(assinaturaVazia) { alert('Por favor, assine no campo de assinatura eletrônica antes de gerar o PDF.'); return; }
 
   dadosGlobais = coletarDados();
   const codigo = gerarCodigo(dadosGlobais);
@@ -434,9 +451,17 @@ function gerarPDF() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(...dimmed);
-  doc.text(`Assinatura: ${d.nome}`, M, y + 13);
-  doc.text(`Data: ${d.aceiteData}`, M + 90, y + 13);
-  y += 20;
+  doc.text(`Paciente: ${d.nome}`, M, y + 13);
+  doc.text(`Data e hora: ${d.aceiteData}`, M + 90, y + 13);
+  y += 18;
+  // Insere imagem da assinatura
+  const assinImg = obterAssinaturaBase64();
+  if(assinImg){
+    try{
+      doc.addImage(assinImg, 'PNG', M, y, 80, 22);
+      y += 26;
+    }catch(e){}
+  }
 
   // Código de importação
   if(y + 20 > 270) { doc.addPage(); y = 15; }
