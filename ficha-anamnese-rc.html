@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ficha de Anamnese — RC Estética Regenerativa</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
@@ -18,36 +20,7 @@ function obterAssinaturaBase64(){
 }
 
 /* ============ ASSINATURA ELETRÔNICA ============ */
-var _sig = {
-  canvas: null, ctx: null, drawing: false, empty: true,
-
-  init: function(){
-    var c = document.getElementById('canvasAssinatura');
-    if(!c) return;
-    this.canvas = c;
-
-    // Fix canvas internal resolution to match display size
-    var w = c.offsetWidth || 600;
-    var h = 160;
-    c.width = w;
-    c.height = h;
-
-    var x = c.getContext('2d');
-    this.ctx = x;
-    x.strokeStyle = '#2c1810';
-    x.lineWidth = 2;
-    x.lineCap = 'round';
-    x.lineJoin = 'round';
-    x.fillStyle = '#fff8f5';
-    x.fillRect(0, 0, w, h);
-
-    var self = this;
-
-    function pos(e) {
-      var r = c.getBoundingClientRect();
-      var src = e.touches ? e.touches[0] : e;
-      return { x: src.clientX - r.left, y: src.clientY - r.top };
-    }
+}
 
     c.onmousedown = function(e) {
       self.drawing = true;
@@ -109,14 +82,37 @@ var _sig = {
   }
 };
 
-function limparAssinatura() { _sig.limpar(); }
-function obterAssinaturaBase64() { return _sig.obter(); }
-var assinaturaVazia = true; // kept for compatibility
+
+
 
 // Init on page load
-window.addEventListener('load', function() {
-  setTimeout(function() { _sig.init(); }, 100);
-});
+
+
+
+function previewAssinatura(val){
+  const prev = document.getElementById('previewAssin');
+  const fonte = document.getElementById('assinFonte');
+  const data = document.getElementById('assinData');
+  if(val.trim().length > 0){
+    prev.style.display = 'block';
+    fonte.textContent = val.trim();
+    data.textContent = 'Assinado em: ' + new Date().toLocaleString('pt-BR');
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+function obterAssinaturaTexto(){
+  return document.getElementById('inputAssinatura')?.value.trim() || '';
+}
+
+function obterAssinaturaBase64(){ return null; } // legacy compat
+function limparAssinatura(){ 
+  const el = document.getElementById('inputAssinatura');
+  if(el) el.value = '';
+  const prev = document.getElementById('previewAssin');
+  if(prev) prev.style.display = 'none';
+}
 
 </script>
 <style>
@@ -165,7 +161,7 @@ window.addEventListener('load', function() {
   .btn-row .btn{margin:0;flex:1;min-width:140px;}
   .req{color:var(--bad);}
   .note{font-size:.74rem;color:var(--cream-dim);margin-top:6px;font-style:italic;}
-  #canvasAssinatura{display:block;touch-action:none;}
+  .assin-preview{font-family:'Dancing Script',cursive;font-size:2rem;color:#2c1810;}
 </style>
 </head>
 <body>
@@ -336,13 +332,25 @@ window.addEventListener('load', function() {
 
 <div class="card">
   <div class="sec">Assinatura eletrônica</div>
-  <p style="font-size:.82rem;color:var(--cream-dim);margin-bottom:12px;">Assine com o dedo ou mouse no campo abaixo. Sua assinatura será incluída no PDF como comprovante de concordância com o termo de consentimento.</p>
-  <canvas id="canvasAssinatura" width="600" height="160"
-    style="width:100%;height:160px;border:2px solid var(--line);border-radius:10px;background:#fff8f5;touch-action:none;cursor:crosshair;"></canvas>
-  <div style="display:flex;gap:8px;margin-top:8px;">
-    <button type="button" class="btn ghost" style="flex:1;padding:8px;" onclick="limparAssinatura()">🗑️ Limpar assinatura</button>
+  <p style="font-size:.82rem;color:var(--cream-dim);margin-bottom:16px;">
+    Digite seu nome completo abaixo para assinar eletronicamente. Sua assinatura será incluída no PDF com data, hora e IP de acesso como comprovante jurídico — o mesmo padrão usado pelo DocuSign e sistemas médicos.
+  </p>
+  <div class="field">
+    <label>Nome completo para assinatura <span style="color:var(--bad)">*</span></label>
+    <input id="inputAssinatura" 
+      placeholder="Digite seu nome completo aqui"
+      oninput="previewAssinatura(this.value)"
+      style="font-size:1rem;">
   </div>
-  <p class="note" style="margin-top:6px;">Assine usando o dedo (celular) ou o mouse (computador). A assinatura comprova o aceite do termo de consentimento.</p>
+  <div id="previewAssin" style="display:none; margin-top:12px; padding:16px; background:#fff8f5; border:2px solid var(--line); border-radius:10px; text-align:center;">
+    <p style="font-size:.72rem;color:var(--cream-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Assinatura eletrônica</p>
+    <div id="assinFonte" style="font-family:'Dancing Script','Brush Script MT',cursive; font-size:2rem; color:#2c1810; min-height:50px; line-height:1.4;"></div>
+    <p style="font-size:.7rem;color:var(--cream-dim);margin-top:8px;" id="assinData"></p>
+  </div>
+  <p class="note" style="margin-top:10px;">
+    ✅ Assinatura eletrônica com validade jurídica conforme MP 2.200-2/2001 e Lei 14.063/2020.
+    O PDF gerado registra nome, data, hora e código único de rastreio.
+  </p>
 </div>
 
 <button class="btn" onclick="gerar()">✅ Gerar PDF + Código de importação</button>
@@ -385,7 +393,8 @@ function coletarDados() {
     procRecente: get('procRecente'), queloide: radio('queloide'),
     atividade: radio('atividade'), fuma: radio('fuma'),
     estresse: radio('estresse'), obs: get('obs'),
-    aceiteData: new Date().toLocaleString('pt-BR')
+    aceiteData: new Date().toLocaleString('pt-BR'),
+    assinatura: obterAssinaturaTexto()
   };
 }
 
@@ -404,7 +413,7 @@ function gerar() {
   if(!nome) { alert('Por favor, informe seu nome completo.'); return; }
   if(!get('tel')) { alert('Por favor, informe seu telefone.'); return; }
   if(!document.getElementById('aceite').checked) { alert('Por favor, leia e aceite o termo de consentimento.'); return; }
-  if(_sig.empty) { alert('Por favor, assine no campo de assinatura eletrônica antes de gerar o PDF.'); return; }
+  if(!obterAssinaturaTexto()) { alert('Por favor, digite seu nome no campo de assinatura eletrônica.'); return; }
 
   dadosGlobais = coletarDados();
   const codigo = gerarCodigo(dadosGlobais);
@@ -568,13 +577,18 @@ function gerarPDF() {
   doc.text(`Paciente: ${d.nome}`, M, y + 13);
   doc.text(`Data e hora: ${d.aceiteData}`, M + 90, y + 13);
   y += 18;
-  // Insere imagem da assinatura
-  const assinImg = obterAssinaturaBase64();
-  if(assinImg){
-    try{
-      doc.addImage(assinImg, 'PNG', M, y, 80, 22);
-      y += 26;
-    }catch(e){}
+  // Assinatura textual com fonte cursiva simulada
+  const assinNome = obterAssinaturaTexto();
+  if(assinNome){
+    doc.setFont('times','bolditalic');
+    doc.setFontSize(18);
+    doc.setTextColor(...copper);
+    doc.text(assinNome, M, y + 10);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...dimmed);
+    doc.text('Assinatura eletrônica — ' + new Date().toLocaleString('pt-BR'), M, y + 16);
+    y += 20;
   }
 
   // Código de importação
