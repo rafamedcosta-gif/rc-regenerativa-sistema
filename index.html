@@ -153,9 +153,8 @@
     <button data-view="prontuarios">Prontuários</button>
     <button data-view="agenda">Agenda</button>
     <button data-view="protocolos">Protocolos</button>
-    <button data-view="pacotes">Pacotes</button>
     <button data-view="produtos">Produtos</button>
-    <button data-view="pedidos">Pedidos</button>
+    <button data-view="pedidos">Pacotes</button>
     <button data-view="compras">Compras</button>
     <button data-view="fornecedores">Fornecedores</button>
     <button data-view="financeiro">Financeiro</button>
@@ -344,7 +343,12 @@ document.getElementById('tabs').addEventListener('click', e=>{
   render(btn.dataset.view);
 });
 
-function openModal(html){ document.getElementById('modalBody').innerHTML = html; document.getElementById('modalBg').classList.add('active'); }
+function openModal(html){ 
+  document.getElementById('modalBody').innerHTML = html; 
+  document.getElementById('modalBg').classList.add('active');
+  // focus first input
+  setTimeout(()=>{ const f=document.querySelector('#modalBody input,#modalBody select,#modalBody textarea'); if(f) f.focus(); },50);
+}
 function closeModal(){ document.getElementById('modalBg').classList.remove('active'); }
 document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') closeModal(); });
 
@@ -368,7 +372,6 @@ function render(view){
   else if(view==='agenda') main.innerHTML = viewAgenda();
   else if(view==='protocolos') main.innerHTML = viewProtocolos();
   else if(view==='produtos') main.innerHTML = viewProdutos();
-  else if(view==='pacotes') main.innerHTML = viewPacotes();
   else if(view==='pedidos') main.innerHTML = viewPedidos();
   else if(view==='compras') main.innerHTML = viewCompras();
   else if(view==='fornecedores') main.innerHTML = viewFornecedores();
@@ -424,7 +427,7 @@ function viewDashboard(){
     <button class="btn" onclick="render('financeiro')">Ver financeiro completo</button>
   </div>
   <div class="grid cols-4">
-    <div class="card"><h3>Receita do mês</h3><div class="big">${brl(tot.receita)}</div><div class="sub">${mes.filter(f=>f.tipo==='receita').length} pedido(s) fechado(s)</div></div>
+    <div class="card"><h3>Receita do mês</h3><div class="big">${brl(tot.receita)}</div><div class="sub">${mes.filter(f=>f.tipo==='receita').length} pacote(s) fechado(s)</div></div>
     <div class="card"><h3>Despesas do mês</h3><div class="big">${brl(tot.despesa)}</div><div class="sub">compras e custos lançados manualmente</div></div>
     <div class="card"><h3>Saldo do mês</h3><div class="big" style="color:${tot.saldo>=0?'var(--ok)':'var(--bad)'}">${brl(tot.saldo)}</div><div class="sub">receita − despesas lançadas</div></div>
     <div class="card" style="border:1.5px solid ${tot.receita>=custoFixoMensal?'var(--ok)':'var(--warn)'}"><h3>Cobertura do custo fixo</h3><div class="big" style="color:${tot.receita>=custoFixoMensal?'var(--ok)':'var(--warn)'}">${Math.round(tot.receita/Math.max(custoFixoMensal,1)*100)}%</div><div class="sub">meta: ${brl(custoFixoMensal)}/mês · faturado: ${brl(tot.receita)}</div></div>
@@ -595,7 +598,7 @@ function prontuarioAnamnese(cli){
   const a = DB.anamneses.find(x=>x.clienteId===cli.id) || {};
   const telDigits = (cli.telefone||'').replace(/\D/g,'');
   const waPhone = telDigits.length>=10 ? (telDigits.length<=11? '55'+telDigits : telDigits) : '';
-  const formUrl = DB.config.linkFichaPublica || 'https://COLOQUE-O-LINK-DA-FICHA-AQUI.netlify.app/';
+  const formUrl = DB.config.linkFichaPublica || 'https://rafamedcosta-gif.github.io/rc-regenerativa-sistema/ficha-anamnese-rc.html';
   const waMsg = encodeURIComponent(`Olá ${cli.nome}! Aqui é da RC Estética Regenerativa. Antes do seu atendimento, por favor preencha sua ficha de anamnese neste link: ${formUrl}`);
   return `<div class="card">
     <h3 style="font-size:.8rem; color:var(--copper-light); text-transform:uppercase; letter-spacing:.5px;">Dados pessoais</h3>
@@ -854,18 +857,21 @@ function viewAgenda(){
   return `
   <div class="section-title">
     <div><h2>Agenda</h2><p>Controle de agendamentos e horas de sala (R$ ${DB.config.aluguelHora||40}/h)</p></div>
-    <button class="btn" id="btnNovoAgendamento">+ Novo agendamento</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn ghost" id="btnRelDia">📋 Relatório do dia</button>
+      <button class="btn" id="btnNovoAgendamento">+ Novo agendamento</button>
+    </div>
   </div>
   <div class="card">
     ${lista.length? `<table><thead><tr><th>Data</th><th>Hora</th><th>Paciente</th><th>Procedimento</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>
       ${lista.map(a=>{
         const cli = DB.clientes.find(c=>c.id===a.clienteId);
-        const proc = DB.procedimentos.find(p=>p.id===a.procedimentoId);
+        const prot = DB.protocolos.find(p=>p.id===a.protocoloId) || DB.procedimentos?.find(p=>p.id===a.procedimentoId);
         return `<tr>
-          <td>${fmtData(a.data)}</td><td>${a.hora}</td><td>${cli?cli.nome:'—'}</td><td>${proc?proc.nome:'—'}</td>
+          <td>${fmtData(a.data)}</td><td>${a.hora}</td><td>${cli?cli.nome:'—'}</td><td>${prot?prot.titulo||prot.nome:'—'}</td>
           <td>${brl(a.valor)}</td><td>${tagStatus(a.status)}</td>
           <td>
-            ${a.status==='agendado'? `<button class="btn small" onclick="concluirAgendamento('${a.id}')">Concluir</button>` : ''}
+            ${a.status==='agendado'? `<button class="btn small" onclick="concluirAgendamento('${a.id}')">Concluir</button><button class="btn ghost small" onclick="editarAgendamento('${a.id}')">Editar</button>` : ''}
             <button class="btn ghost small" onclick="excluirAgendamento('${a.id}')">Excluir</button>
           </td>
         </tr>`;
@@ -874,50 +880,128 @@ function viewAgenda(){
   </div>`;
 }
 function wireAgenda(){
+  document.getElementById('btnRelDia')?.addEventListener('click', gerarRelatorioDia);
   document.getElementById('btnNovoAgendamento')?.addEventListener('click', ()=>{
-    const clientesOpt = DB.clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('') || '<option value="">Cadastre um paciente primeiro</option>';
-    const procOpt = DB.procedimentos.map(p=>`<option value="${p.id}" data-preco="${p.precoAtual}">${p.nome} — ${brl(p.precoAtual)}${p.precoMax && p.precoMax>p.precoAtual? ' a '+brl(p.precoMax):''}</option>`).join('');
+    const clientesOpt = [...DB.clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('') || '<option value="">Cadastre um paciente primeiro</option>';
+    const protOpt = [...DB.protocolos].sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt-BR')).map(p=>`<option value="${p.id}">${p.codigo||''} — ${p.titulo||p.id} · custo ${brl(calcularCustoProtocolo(p.id))}/sessão</option>`).join('') || '<option value="">Cadastre um protocolo primeiro</option>';
     openModal(`<h3>Novo agendamento</h3>
       <div class="field"><label>Paciente</label><select id="mAgCliente">${clientesOpt}</select></div>
-      <div class="field"><label>Procedimento</label><select id="mAgProc" onchange="document.getElementById('mAgValor').value=this.selectedOptions[0].dataset.preco">${procOpt}</select></div>
-      <div class="field"><label>Valor cobrado (R$) — ajuste se o procedimento variar de preço</label><input type="number" step="0.01" id="mAgValor" value="${DB.procedimentos[0]?DB.procedimentos[0].precoAtual:0}"></div>
+      <div class="field"><label>Protocolo / Procedimento</label><select id="mAgProc">${protOpt}</select></div>
+      <div class="field"><label>Valor cobrado (R$)</label><input type="number" step="0.01" id="mAgValor" value="0"></div>
       <div class="field"><label>Data</label><input type="date" id="mAgData" value="${todayISO()}"></div>
       <div class="field"><label>Hora</label><input type="time" id="mAgHora" value="09:00"></div>
+      <div class="field"><label>Observações</label><input id="mAgObs" placeholder="Ex.: primeira sessão, desconto aplicado..."></div>
       <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarAgendamento()">Agendar</button></div>`);
   });
 }
 async function salvarAgendamento(){
   const clienteId = document.getElementById('mAgCliente').value;
-  const procSel = document.getElementById('mAgProc');
-  if(!clienteId){ toast('Cadastre um paciente antes de agendar'); return; }
-  const procedimentoId = procSel.value;
-  const valor = Number(document.getElementById('mAgValor').value) || Number(procSel.selectedOptions[0].dataset.preco);
-  DB.agendamentos.push({ id:uid(), clienteId, procedimentoId, data:document.getElementById('mAgData').value,
-    hora:document.getElementById('mAgHora').value, status:'agendado', valor });
-  // empenho: reserva os insumos necessários para este atendimento
-  const proc = DB.procedimentos.find(p=>p.id===procedimentoId);
-  if(proc){ proc.insumos.forEach(nome=>{ const p = DB.produtos.find(x=>x.nome===nome); if(p && p.tipo==='insumo') p.reservado = (p.reservado||0)+1; }); }
+  const protocoloId = document.getElementById('mAgProc').value;
+  if(!clienteId){ toast('Selecione um paciente'); return; }
+  if(!protocoloId){ toast('Selecione um protocolo'); return; }
+  const valor = Number(document.getElementById('mAgValor').value)||0;
+  const obs = document.getElementById('mAgObs')?.value.trim()||'';
+  const ag = { id:uid(), clienteId, protocoloId, data:document.getElementById('mAgData').value,
+    hora:document.getElementById('mAgHora').value, status:'agendado', valor, obs };
+  DB.agendamentos.push(ag);
+  // reserva insumos do protocolo no estoque
+  const protocolo = DB.protocolos.find(p=>p.id===protocoloId);
+  if(protocolo && protocolo.itens){
+    protocolo.itens.forEach(it=>{ const p=DB.produtos.find(x=>x.id===it.produtoId); if(p&&p.tipo==='insumo') p.reservado=(p.reservado||0)+it.quantidade; });
+    await sSet('produtos', DB.produtos);
+  }
   await sSet('agendamentos', DB.agendamentos);
-  await sSet('produtos', DB.produtos);
-  closeModal(); render('agenda'); toast('Agendamento criado e insumos reservados em estoque');
+  closeModal(); render('agenda'); toast('Agendamento criado — insumos reservados');
+}
+
+function editarAgendamento(id){
+  const ag = DB.agendamentos.find(a=>a.id===id); if(!ag) return;
+  const clientesOpt = [...DB.clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}" ${c.id===ag.clienteId?'selected':''}>${c.nome}</option>`).join('');
+  const protOpt = [...DB.protocolos].sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt-BR')).map(p=>`<option value="${p.id}" ${p.id===ag.protocoloId?'selected':''}>${p.titulo||p.id}</option>`).join('');
+  openModal(`<h3>Editar agendamento</h3>
+    <div class="field"><label>Paciente</label><select id="mAgCliente">${clientesOpt}</select></div>
+    <div class="field"><label>Protocolo</label><select id="mAgProc">${protOpt}</select></div>
+    <div class="field"><label>Valor cobrado (R$)</label><input type="number" step="0.01" id="mAgValor" value="${ag.valor||0}"></div>
+    <div class="field"><label>Data</label><input type="date" id="mAgData" value="${ag.data}"></div>
+    <div class="field"><label>Hora</label><input type="time" id="mAgHora" value="${ag.hora}"></div>
+    <div class="field"><label>Observações</label><input id="mAgObs" value="${ag.obs||''}"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarEdicaoAgendamento('${id}')">Salvar</button></div>`);
+}
+async function salvarEdicaoAgendamento(id){
+  const ag = DB.agendamentos.find(a=>a.id===id); if(!ag) return;
+  ag.clienteId = document.getElementById('mAgCliente').value;
+  ag.protocoloId = document.getElementById('mAgProc').value;
+  ag.valor = Number(document.getElementById('mAgValor').value)||0;
+  ag.data = document.getElementById('mAgData').value;
+  ag.hora = document.getElementById('mAgHora').value;
+  ag.obs = document.getElementById('mAgObs')?.value.trim()||'';
+  await sSet('agendamentos', DB.agendamentos);
+  closeModal(); render('agenda'); toast('Agendamento atualizado');
+}
+function gerarRelatorioDia(){
+  const hoje = todayISO();
+  const agHoje = DB.agendamentos.filter(a=>a.data===hoje && a.status==='agendado');
+  if(!agHoje.length){ toast('Nenhum agendamento para hoje'); return; }
+  let relatorio = `📋 MATERIAIS PARA HOJE — ${fmtData(hoje)}\n${'═'.repeat(40)}\n`;
+  const materiaisTotal = {};
+  agHoje.forEach(ag=>{
+    const cli = DB.clientes.find(c=>c.id===ag.clienteId);
+    const prot = DB.protocolos.find(p=>p.id===ag.protocoloId);
+    relatorio += `\n🕐 ${ag.hora} — ${cli?cli.nome:'Paciente'} · ${prot?prot.titulo:'Procedimento'}\n`;
+    if(prot && prot.itens){
+      prot.itens.forEach(it=>{
+        const prod = DB.produtos.find(x=>x.id===it.produtoId);
+        if(prod){
+          relatorio += `   • ${prod.codigo} ${prod.nome} — ${it.quantidade} ${prod.unidadeMedida||'un'}${it.dosagem?' ('+it.dosagem+')':''}\n`;
+          const key = prod.id;
+          materiaisTotal[key] = { nome:prod.nome, qtd:(materiaisTotal[key]?.qtd||0)+it.quantidade, unid:prod.unidadeMedida||'un' };
+        }
+      });
+    }
+  });
+  relatorio += `\n${'═'.repeat(40)}\n📦 TOTAL A SEPARAR:\n`;
+  Object.values(materiaisTotal).forEach(m=>{ relatorio += `   • ${m.nome}: ${m.qtd} ${m.unid}\n`; });
+  openModal(`<h3>📋 Materiais para hoje — ${fmtData(hoje)}</h3>
+    <pre style="font-size:.8rem;line-height:1.7;white-space:pre-wrap;color:var(--cream)">${relatorio}</pre>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Fechar</button>
+      <button class="btn" onclick="navigator.clipboard.writeText(document.querySelector('#modalBody pre').textContent).then(()=>toast('Copiado!'))">📋 Copiar</button>
+    </div>`);
 }
 async function concluirAgendamento(id){
   const ag = DB.agendamentos.find(a=>a.id===id); if(!ag) return;
-  ag.status='concluido';
-  const proc = DB.procedimentos.find(p=>p.id===ag.procedimentoId);
-  // baixa real do estoque e libera a reserva (o insumo foi de fato consumido)
-  if(proc){ proc.insumos.forEach(nome=>{ const p = DB.produtos.find(x=>x.nome===nome); if(p && p.tipo==='insumo'){ p.estoque = Math.max(0,p.estoque-1); p.reservado = Math.max(0,(p.reservado||0)-1); } }); }
-  DB.financeiro.push({ id:uid(), data:todayISO(), tipo:'receita', categoria:'Atendimento', descricao:`${proc?proc.nome:'Procedimento'} — paciente atendido`, valor:ag.valor });
-  await saveAll();
-  render('agenda'); toast('Atendimento concluído, estoque baixado e financeiro atualizado');
+  if(!confirm('Confirmar conclusão do atendimento? Isso dará baixa no estoque e lançará a receita no financeiro.')) return;
+  ag.status = 'concluido';
+  ag.concluidoEm = agora();
+  const protocolo = DB.protocolos.find(p=>p.id===ag.protocoloId);
+  const cliente = DB.clientes.find(c=>c.id===ag.clienteId);
+  // baixa real: consome do estoque e libera a reserva
+  if(protocolo && protocolo.itens){
+    protocolo.itens.forEach(it=>{
+      const p = DB.produtos.find(x=>x.id===it.produtoId);
+      if(p && p.tipo==='insumo'){
+        p.estoque = Math.max(0, p.estoque - it.quantidade);
+        p.reservado = Math.max(0, (p.reservado||0) - it.quantidade);
+      }
+    });
+    await sSet('produtos', DB.produtos);
+  }
+  // lança receita no financeiro
+  const descricao = `${protocolo?protocolo.titulo:'Atendimento'} — ${cliente?cliente.nome:'paciente'}`;
+  DB.financeiro.push({ id:uid(), data:todayISO(), tipo:'receita', categoria:'Atendimento', descricao, valor:ag.valor||0 });
+  await sSet('agendamentos', DB.agendamentos);
+  await sSet('financeiro', DB.financeiro);
+  render('agenda'); toast('✅ Concluído — estoque atualizado e receita lançada');
 }
 async function excluirAgendamento(id){
   const ag = DB.agendamentos.find(a=>a.id===id); if(!ag) return;
   // se ainda não foi concluído, libera a reserva de insumos feita no agendamento
   if(ag.status==='agendado'){
-    const proc = DB.procedimentos.find(p=>p.id===ag.procedimentoId);
-    if(proc){ proc.insumos.forEach(nome=>{ const p = DB.produtos.find(x=>x.nome===nome); if(p && p.tipo==='insumo') p.reservado = Math.max(0,(p.reservado||0)-1); }); }
-    await sSet('produtos', DB.produtos);
+    const protocolo = DB.protocolos.find(p=>p.id===ag.protocoloId);
+    if(protocolo && protocolo.itens){
+      protocolo.itens.forEach(it=>{ const p=DB.produtos.find(x=>x.id===it.produtoId); if(p&&p.tipo==='insumo') p.reservado=Math.max(0,(p.reservado||0)-it.quantidade); });
+      await sSet('produtos', DB.produtos);
+    }
   }
   DB.agendamentos = DB.agendamentos.filter(a=>a.id!==id);
   await sSet('agendamentos', DB.agendamentos); render('agenda'); toast('Agendamento removido e reserva liberada');
@@ -948,7 +1032,7 @@ function renderListaProtocolos(lista){
         <div>
           <b style="font-size:1rem;">${pop.codigo||'—'}</b>
           <span style="margin-left:8px; font-family:Georgia,serif; font-size:1.05rem;">${pop.titulo||'Sem título'}</span>
-          <div class="sub">${fmtDataHora(pop.criadoEm)} · Custo estimado por sessão: <b>${brl(custoTotal)}</b></div>
+          <div class="sub">${fmtDataHora(pop.criadoEm)} · Duração: ${pop.duracaoMin||60} min · Custo estimado por sessão: <b>${brl(custoTotal)}</b></div>
         </div>
         <div style="display:flex; gap:6px;">
           <button class="btn small" onclick="abrirProtocolo('${pop.id}')">Abrir / Editar</button>
@@ -996,6 +1080,7 @@ function abrirProtocolo(id){
   }).join('') || '<div class="sub">Nenhum produto adicionado ainda.</div>';
   openModal(`<h3>${pop.codigo} — Editar protocolo</h3>
     <div class="field"><label>Título / nome do protocolo</label><input id="popTitulo" value="${pop.titulo||''}"></div>
+    <div class="field"><label>Duração da sessão (minutos)</label><input type="number" id="popDuracao" value="${pop.duracaoMin||60}" min="15" step="15" placeholder="60"></div>
     <div class="field"><label>Intervalo recomendado entre sessões</label><input id="popIntervalo" value="${pop.intervaloRecomendado||''}" placeholder="ex.: 30 a 45 dias"></div>
 
     <hr style="border:none;border-top:1px solid var(--line);margin:12px 0;">
@@ -1043,6 +1128,7 @@ async function removerItemProtocolo(id, idx){
 async function salvarProtocolo(id){
   const pop = DB.protocolos.find(x=>x.id===id); if(!pop) return;
   pop.titulo = document.getElementById('popTitulo').value.trim();
+  pop.duracaoMin = Number(document.getElementById('popDuracao')?.value)||60;
   pop.intervaloRecomendado = document.getElementById('popIntervalo').value.trim();
   pop.cuidadosPre = document.getElementById('popPre').value.trim();
   pop.passos = document.getElementById('popPassos').value.trim();
@@ -1148,7 +1234,7 @@ function filtrarProdutos(q){
 }
 function viewProdutosHTML(equipamentos, insumos){
   return `<div class="card" style="margin-bottom:16px;"><h3>Consumíveis</h3><p class="sub">Itens que se esgotam a cada uso.</p>
-    ${insumos.length?`<table><thead><tr><th>Código</th><th>Nome</th><th>Unid.</th><th>Custo/uso</th><th>Estoque</th><th>Reservado</th><th>Disponível</th><th>Mínimo</th><th>Cadastro</th><th></th></tr></thead><tbody>
+    ${insumos.length?`<table><thead><tr><th>Código</th><th>Nome</th><th>Custo/uso</th><th>Estoque</th><th>Disponível</th><th>Cobertura</th><th>Cadastro</th><th></th></tr></thead><tbody>
     ${insumos.map(p=>`<tr><td><b>${p.codigo||'—'}</b></td><td>${p.nome}</td><td>${p.unidadeMedida||'un'}</td><td>${brl(p.custoPorUso)}</td><td>${p.estoque}</td><td>${p.reservado||0}</td><td><span class="tag ${disponivel(p)<=p.estoqueMin?'bad':'ok'}">${disponivel(p)}</span></td><td>${p.estoqueMin}</td><td><span class="sub">${fmtDataHora(p.criadoEm)}</span></td><td style="display:flex;gap:4px;"><button class="btn small" onclick="editarProduto('${p.id}')">Editar</button><button class="btn ghost small" onclick="excluirProduto('${p.id}')">Excluir</button></td></tr>`).join('')}
     </tbody></table>`:'<div class="empty" style="padding:16px 0;">Nenhum consumível encontrado.</div>'}
   </div>
@@ -1272,8 +1358,8 @@ function calcularCustoFixoRateado(){
 }
 function calcularMC(pacoteId){
   const pkg = DB.pacotes.find(x=>x.id===pacoteId); if(!pkg) return null;
-  const protocolo = DB.protocolos.find(x=>x.id===pkg.protocoloId);
-  const custoInsumos = calcularCustoProtocolo(pkg.protocoloId);
+  const protocolo = DB.protocolos.find(x=>x.id===protocoloId);
+  const custoInsumos = calcularCustoProtocolo(protocoloId);
   const custoSala = calcularCustoSala(protocolo?.duracaoMin||60);
   const custoFixoRateado = calcularCustoFixoRateado();
   const custoVariavel = custoInsumos + custoSala;
@@ -1429,8 +1515,8 @@ function viewPedidos(){
   const totalMes = pedidos.filter(p=>p.data&&p.data.slice(0,7)===todayISO().slice(0,7)).reduce((s,p)=>s+Number(p.valor),0);
   return `
   <div class="section-title">
-    <div><h2>Pedidos</h2><p>Vendas fechadas com pacientes — cada pedido gera receita no financeiro</p></div>
-    <button class="btn" id="btnNovoPedido">+ Novo pedido</button>
+    <div><h2>Pacotes</h2><p>Vendas fechadas com pacientes — cada pedido gera receita no financeiro</p></div>
+    <button class="btn" id="btnNovoPedido">+ Novo pacote</button>
   </div>
   <div class="card" style="margin-bottom:16px;">
     <div style="display:flex;gap:24px;flex-wrap:wrap;">
@@ -1439,108 +1525,310 @@ function viewPedidos(){
     </div>
   </div>
   <div class="card">
-    ${pedidos.length? `<table><thead><tr><th>Data</th><th>Paciente / Serviço</th><th>Valor</th><th></th></tr></thead><tbody>
+    ${pedidos.length? `<table><thead><tr><th>Código</th><th>Data</th><th>Serviço / Paciente</th><th>Sessões</th><th>Valor</th><th></th></tr></thead><tbody>
       ${pedidos.map(p=>`<tr>
+        <td><b>${p.codigo||'—'}</b></td>
         <td>${fmtData(p.data)}</td>
         <td>${p.descricao}</td>
+        <td>${p.sessoes||1}</td>
         <td><b>${brl(p.valor)}</b></td>
         <td><button class="btn ghost small" onclick="excluirPedido('${p.id}')">Excluir</button></td>
       </tr>`).join('')}
     </tbody></table>`
-    : `<div class="empty"><b>Nenhum pedido registrado</b>Clique em "+ Novo pedido" para registrar uma venda.</div>`}
+    : `<div class="empty"><b>Nenhum pacote registrado</b>Clique em "+ Novo pacote" para registrar um atendimento.</div>`}
   </div>`;
 }
 function wirePedidos(){
   document.getElementById('btnNovoPedido')?.addEventListener('click', ()=>{
-    const clientesOpt = [...DB.clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('') || '<option value="">Cadastre um paciente primeiro</option>';
-    const pacotesOpt = [...DB.pacotes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(p=>`<option value="${p.id}" data-preco="${p.precoMin}">${p.codigo} — ${p.nome} · ${brl(p.precoMin)}</option>`).join('') || '<option value="">Cadastre um pacote primeiro</option>';
-    openModal(`<h3>Novo pedido</h3>
-      <div class="field"><label>Paciente</label><select id="mPedCliente">${clientesOpt}</select></div>
-      <div class="field"><label>Pacote / serviço</label>
-        <select id="mPedPacote" onchange="document.getElementById('mPedValor').value=this.options[this.selectedIndex].dataset.preco||0">
-          <option value="">— selecione —</option>${pacotesOpt}
-        </select>
-      </div>
-      <div class="field"><label>Valor cobrado (R$) — ajuste se der desconto</label><input type="number" step="0.01" id="mPedValor" value="0"></div>
-      <div class="field"><label>Observações</label><input id="mPedObs" placeholder="Ex.: pagamento no cartão, desconto aplicado..."></div>
-      <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarPedido()">Registrar pedido</button></div>`);
+    abrirModalPedido();
   });
 }
+
+// Itens do pedido em construção
+window._itensPedido = [];
+
+function abrirModalPedido(){
+  window._itensPedido = [];
+  const clientesOpt = [...DB.clientes].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('') || '<option value="">Cadastre um paciente primeiro</option>';
+  openModal(`<h3>Novo pacote / pedido</h3>
+    <div class="field"><label>Paciente</label><select id="mPedCliente">${clientesOpt}</select></div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">
+    <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--copper);font-weight:700;margin-bottom:8px;">Procedimentos</div>
+    <div id="itensPedidoLista" style="margin-bottom:10px;"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;">
+      <div class="field" style="flex:2;min-width:160px;margin:0;">
+        <label>Protocolo</label>
+        <select id="mPedProtAdd">
+          <option value="">— selecione —</option>
+          ${DB.protocolos.sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt-BR')).map(p=>`<option value="${p.id}" data-dur="${p.duracaoMin||60}">${p.titulo||p.id}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="width:70px;margin:0;"><label>Sessões</label><input type="number" id="mPedSessAdd" value="1" min="1"></div>
+      <div class="field" style="width:100px;margin:0;"><label>Frequência</label>
+        <select id="mPedFreqAdd">
+          <option value="semanal">Semanal</option>
+          <option value="quinzenal" selected>Quinzenal</option>
+          <option value="mensal">Mensal</option>
+          <option value="avulso">Avulso</option>
+        </select>
+      </div>
+      <button class="btn small" style="margin-bottom:0;" onclick="adicionarItemPedido()">+ Add</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">
+    <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--copper);font-weight:700;margin-bottom:8px;">Agendamento da 1ª sessão</div>
+    <div class="g2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field" style="margin:0;"><label>Data</label><input type="date" id="mPedData" value="${todayISO()}"></div>
+      <div class="field" style="margin:0;"><label>Hora</label><input type="time" id="mPedHora" value="09:00"></div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">
+    <div class="field"><label>Valor total cobrado (R$)</label><input type="number" step="0.01" id="mPedValor" value="0" oninput="atualizarMCPedidoValor()"></div>
+    <div id="mcPedidoBox" style="display:none;background:var(--bg-elev);border-radius:10px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--copper);font-weight:700;margin-bottom:8px;">MC — Análise de resultado</div>
+      <div id="mcPedidoDetalhe"></div>
+    </div>
+    <div class="field"><label>Observações</label><input id="mPedObs" placeholder="Pagamento, desconto, observações..."></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarPedido()">Registrar e agendar</button></div>`);
+  renderItensPedido();
+}
+
+function adicionarItemPedido(){
+  const sel = document.getElementById('mPedProtAdd');
+  const protId = sel.value;
+  if(!protId){ toast('Selecione um protocolo'); return; }
+  const prot = DB.protocolos.find(x=>x.id===protId);
+  const sessoes = Number(document.getElementById('mPedSessAdd').value)||1;
+  const freq = document.getElementById('mPedFreqAdd').value;
+  if(window._itensPedido.find(i=>i.protId===protId)){
+    toast('Protocolo já adicionado — remova e adicione novamente para alterar'); return;
+  }
+  window._itensPedido.push({ protId, titulo: prot?.titulo||protId, sessoes, freq, duracaoMin: prot?.duracaoMin||60 });
+  renderItensPedido();
+  atualizarMCPedidoValor();
+}
+
+function removerItemPedido(idx){
+  window._itensPedido.splice(idx,1);
+  renderItensPedido();
+  atualizarMCPedidoValor();
+}
+
+function renderItensPedido(){
+  const el = document.getElementById('itensPedidoLista');
+  if(!el) return;
+  if(!window._itensPedido.length){
+    el.innerHTML = '<div class="sub" style="padding:8px 0;color:var(--cream-dim);">Nenhum procedimento adicionado ainda.</div>';
+    return;
+  }
+  el.innerHTML = window._itensPedido.map((it,i)=>{
+    const custo = calcularCustoProtocolo(it.protId);
+    const custoSala = calcularCustoSala(it.duracaoMin);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg-elev);border-radius:8px;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+      <div>
+        <b>${it.titulo}</b>
+        <span class="sub"> · ${it.sessoes}x · ${it.freq} · ${it.duracaoMin}min/sessão</span>
+        <div class="sub" style="font-size:.75rem;">Custo/sessão: ${brl(custo+custoSala)} (insumos+sala)</div>
+      </div>
+      <button class="btn ghost small" onclick="removerItemPedido(${i})">Remover</button>
+    </div>`;
+  }).join('');
+}
+function atualizarMCPedidoProtocolo(protocoloId){
+  const box = document.getElementById('mcPedidoBox');
+  if(!protocoloId){ if(box) box.style.display='none'; return; }
+  const valor = Number(document.getElementById('mPedValor')?.value)||0;
+  mostrarMCPedido(protocoloId, valor);
+}
+function atualizarMCPedidoValor(){
+  const protocoloId = document.getElementById('mPedProtocolo')?.value;
+  const valor = Number(document.getElementById('mPedValor')?.value)||0;
+  if(protocoloId) mostrarMCPedido(protocoloId, valor);
+}
+function mostrarMCPedido(protocoloId, precoVenda){
+  const pkg = { protocoloId };
+  const box = document.getElementById('mcPedidoBox');
+  const detalhe = document.getElementById('mcPedidoDetalhe');
+  if(!box||!detalhe) return;
+  const protocolo = DB.protocolos.find(x=>x.id===protocoloId);
+  const custoInsumos = calcularCustoProtocolo(protocoloId);
+  const custoSala = calcularCustoSala(protocolo?.duracaoMin||60);
+  const custoFixo = calcularCustoFixoRateado();
+  const custoVariavel = custoInsumos + custoSala;
+  const custoTotal = custoVariavel + custoFixo;
+  const mc = precoVenda - custoVariavel;
+  const lucro = precoVenda - custoTotal;
+  const mcPerc = precoVenda>0? (mc/precoVenda*100):0;
+  const cor = lucro>=0?'var(--ok)':'var(--bad)';
+  detalhe.innerHTML = `
+    <table style="width:100%;font-size:.8rem;">
+      <tr><td style="color:var(--cream-dim)">Insumos do protocolo</td><td style="text-align:right">${brl(custoInsumos)}</td></tr>
+      <tr><td style="color:var(--cream-dim)">Custo de sala</td><td style="text-align:right">${brl(custoSala)}</td></tr>
+      <tr><td style="color:var(--cream-dim)">Custo fixo rateado</td><td style="text-align:right">${brl(custoFixo)}</td></tr>
+      <tr style="border-top:1px solid var(--line)"><td><b>Custo total/sessão</b></td><td style="text-align:right"><b>${brl(custoTotal)}</b></td></tr>
+      <tr style="border-top:2px solid var(--copper)"><td><b>Preço cobrado</b></td><td style="text-align:right"><b>${brl(precoVenda)}</b></td></tr>
+      <tr><td style="color:${mc>=0?'var(--ok)':'var(--bad)'}"><b>MC (${mcPerc.toFixed(0)}%)</b></td><td style="text-align:right;color:${mc>=0?'var(--ok)':'var(--bad)'}"><b>${brl(mc)}</b></td></tr>
+      <tr><td style="color:${cor}"><b>Lucro líquido</b></td><td style="text-align:right;color:${cor}"><b>${brl(lucro)}</b></td></tr>
+    </table>
+    ${lucro<0?`<div style="color:var(--bad);font-size:.78rem;margin-top:8px;">⚠️ Preço abaixo do ponto de equilíbrio. Mínimo para lucrar: ${brl(custoTotal)}</div>`:''}`;
+  box.style.display = 'block';
+}
+
 async function salvarPedido(){
   const clienteEl = document.getElementById('mPedCliente');
-  const pacoteEl = document.getElementById('mPedPacote');
-  const valor = Number(document.getElementById('mPedValor').value)||0;
+  const itens = window._itensPedido||[];
+  const valor = Number(document.getElementById('mPedValor')?.value)||0;
   const obs = document.getElementById('mPedObs')?.value.trim()||'';
+  const dataAg = document.getElementById('mPedData')?.value||todayISO();
+  const horaAg = document.getElementById('mPedHora')?.value||'09:00';
   const cliente = DB.clientes.find(c=>c.id===clienteEl?.value);
-  const pacote = DB.pacotes.find(p=>p.id===pacoteEl?.value);
   if(!cliente){ toast('Selecione um paciente'); return; }
-  if(!pacote){ toast('Selecione um pacote'); return; }
+  if(!itens.length){ toast('Adicione pelo menos um procedimento'); return; }
   if(!valor){ toast('Informe o valor cobrado'); return; }
-  const descricao = `${pacote.nome} — ${cliente.nome}${obs?' ('+obs+')':''}`;
-  DB.financeiro.push({ id:uid(), data:todayISO(), tipo:'receita', categoria:'Pacote', descricao, valor, pacoteId:pacote.id, clienteId:cliente.id });
-  // reserva insumos do protocolo × sessões do pacote
-  const protocolo = DB.protocolos.find(x=>x.id===pacote.protocoloId);
-  if(protocolo && protocolo.itens){
-    protocolo.itens.forEach(it=>{
-      const p = DB.produtos.find(x=>x.id===it.produtoId);
-      if(p && p.tipo==='insumo') p.reservado = (p.reservado||0) + (it.quantidade * (pacote.sessoes||1));
-    });
-    await sSet('produtos', DB.produtos);
+
+  const cod = proximoCodigo(DB.financeiro.filter(f=>f.categoria==='Pacote'),'PKG');
+  const totalSessoes = itens.reduce((s,it)=>s+it.sessoes,0);
+  const nomePacote = itens.map(it=>it.titulo).join(' + ');
+  const descricao = `${cod} · ${nomePacote} — ${cliente.nome}${obs?' · '+obs:''}`;
+
+  // Registra no financeiro
+  DB.financeiro.push({ id:uid(), codigo:cod, data:todayISO(), tipo:'receita', categoria:'Pacote',
+    descricao, valor, clienteId:cliente.id, itens: itens.map(i=>({...i})), totalSessoes });
+
+  // Reserva insumos e cria agendamento da 1ª sessão de cada protocolo
+  for(const item of itens){
+    const protocolo = DB.protocolos.find(x=>x.id===item.protId);
+    if(protocolo && protocolo.itens){
+      protocolo.itens.forEach(it=>{
+        const p = DB.produtos.find(x=>x.id===it.produtoId);
+        if(p && p.tipo==='insumo') p.reservado = (p.reservado||0) + (it.quantidade * item.sessoes);
+      });
+    }
+    // Cria agendamento da 1ª sessão
+    DB.agendamentos.push({ id:uid(), clienteId:cliente.id, protocoloId:item.protId,
+      data:dataAg, hora:horaAg, status:'agendado', valor:0, obs:`${cod} — sessão 1/${item.sessoes}`, pedidoCod:cod });
   }
+
+  await sSet('produtos', DB.produtos);
   await sSet('financeiro', DB.financeiro);
-  closeModal(); render('pedidos'); toast(`Pedido registrado — R$ ${valor.toFixed(2).replace('.',',')} · insumos reservados`);
+  await sSet('agendamentos', DB.agendamentos);
+  window._itensPedido = [];
+  closeModal(); render('pedidos');
+  toast(`✅ ${cod} registrado — 1ª sessão agendada para ${fmtData(dataAg)} às ${horaAg}`);
 }
 async function excluirPedido(id){
   const p = DB.financeiro.find(x=>x.id===id);
-  if(!confirm(`Excluir pedido "${p?.descricao}"?\n\nIsso remove o lançamento do financeiro. Os insumos reservados NÃO são devolvidos automaticamente.`)) return;
+  if(!confirm(`Excluir pacote "${p?.descricao}"?\n\nIsso remove o lançamento do financeiro. Os insumos reservados NÃO são devolvidos automaticamente.`)) return;
   DB.financeiro = DB.financeiro.filter(x=>x.id!==id);
   await sSet('financeiro', DB.financeiro);
-  render('pedidos'); toast('Pedido excluído');
+  render('pedidos'); toast('Pacote excluído');
 }
 
 /* ============ VIEW: COMPRAS (KANBAN) ============ */
 function disponivel(p){ return p.estoque - (p.reservado||0); }
+/* ============ ESTOQUE INTELIGENTE ============ */
+function coberturaInsumo(produto){
+  // Quantas sessões o estoque atual cobre, considerando todos os protocolos que usam este produto
+  const disp = disponivel(produto);
+  // Encontra o maior consumo por sessão em qualquer protocolo
+  let maxUso = 0;
+  DB.protocolos.forEach(pop=>{
+    const item = (pop.itens||[]).find(it=>it.produtoId===produto.id);
+    if(item && item.quantidade > maxUso) maxUso = item.quantidade;
+  });
+  if(maxUso === 0) return { sessoes: disp, cor: 'ok', label: `${disp} un (não vinculado a protocolo)` };
+  const sessoes = Math.floor(disp / maxUso);
+  const meta = DB.config.metaAtendimentos || 20;
+  const perc = sessoes / meta;
+  let cor, status;
+  if(perc >= 0.5){ cor='ok'; status='✅ OK'; }
+  else if(perc >= 0.25){ cor='warn'; status='⚠️ Alerta'; }
+  else { cor='bad'; status='🔴 Crítico'; }
+  return { sessoes, maxUso, cor, status, label:`${sessoes} sessões (${maxUso} un/sessão)` };
+}
+function minutoSugerido(produto){
+  // Calcula mínimo inteligente: 25% da meta de atendimentos × uso por sessão
+  const meta = DB.config.metaAtendimentos || 20;
+  let maxUso = 0;
+  DB.protocolos.forEach(pop=>{
+    const item = (pop.itens||[]).find(it=>it.produtoId===produto.id);
+    if(item && item.quantidade > maxUso) maxUso = item.quantidade;
+  });
+  return Math.ceil(meta * 0.25 * maxUso) || produto.estoqueMin || 1;
+}
+
+
 function viewCompras(){
-  const precisaComprar = DB.produtos.filter(p=> p.tipo==='insumo' && p.estoqueMin>0 && disponivel(p)<=p.estoqueMin && p.statusCompra!=='pedido');
-  const pedidoFeito = DB.produtos.filter(p=> p.statusCompra==='pedido');
+  const meta = DB.config.metaAtendimentos || 20;
+  // Classify all insumos by smart coverage
+  const insumos = DB.produtos.filter(p=>p.tipo==='insumo');
+  const criticos = insumos.filter(p=>{ const c=coberturaInsumo(p); return c.cor==='bad' && p.statusCompra!=='pedido'; });
+  const alerta   = insumos.filter(p=>{ const c=coberturaInsumo(p); return c.cor==='warn' && p.statusCompra!=='pedido'; });
+  const ok       = insumos.filter(p=>{ const c=coberturaInsumo(p); return c.cor==='ok'  && p.statusCompra!=='pedido'; });
+  const pedidoFeito = insumos.filter(p=>p.statusCompra==='pedido');
   const recentes = [...DB.compras].sort((a,b)=>b.data.localeCompare(a.data)).slice(0,8);
+
+  function cardInsumo(p, borderCor, showBtn){
+    const cob = coberturaInsumo(p);
+    const forn = DB.fornecedores.find(f=>f.id===p.fornecedorId);
+    return `<div style="padding:10px 0; border-bottom:1px solid var(--line);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <b>${p.codigo||''} ${p.nome}</b>
+          ${forn? `<span class="sub"> · ${forn.nome}</span>`:''}
+          <div class="sub">Estoque: ${p.estoque} un · Reservado: ${p.reservado||0} · Disponível: ${disponivel(p)}</div>
+          <div class="sub" style="color:var(--${cob.cor})">${cob.label}</div>
+        </div>
+        ${showBtn==='comprar'? `<button class="btn small" onclick="marcarPedidoFeito('${p.id}')">Pedir</button>`:''}
+        ${showBtn==='receber'? `<div style="display:flex;gap:4px;"><button class="btn small" onclick="abrirRecebimento('${p.id}')">Recebido</button><button class="btn ghost small" onclick="voltarParaComprar('${p.id}')">Voltar</button></div>`:''}
+      </div>
+    </div>`;
+  }
+
   return `
   <div class="section-title">
-    <div><h2>Compras</h2><p>Kanban de reposição — o estoque disponível já considera as unidades reservadas por agendamentos</p></div>
-    <button class="btn" id="btnNovaCompra">+ Registrar compra avulsa</button>
+    <div><h2>Compras — Kanban de Estoque</h2>
+    <p>Cobertura calculada com base nos protocolos cadastrados e meta de ${meta} atendimentos/mês</p></div>
+    <button class="btn" id="btnNovaCompra">+ Registrar compra</button>
   </div>
-  <div class="grid cols-3">
-    <div class="card">
-      <h3 style="color:var(--bad);">Precisa comprar</h3>
-      ${precisaComprar.length? precisaComprar.map(p=>`
-        <div class="card" style="margin-top:10px; box-shadow:none; border-color:var(--bad);">
-          <b>${p.nome}</b>
-          <div class="sub">Disponível: ${disponivel(p)} · Mínimo: ${p.estoqueMin} · Reservado: ${p.reservado||0}</div>
-          <button class="btn small" style="margin-top:8px;" onclick="marcarPedidoFeito('${p.id}')">Marcar como pedido feito</button>
-        </div>`).join('') : `<div class="empty" style="padding:20px 10px;">Nada urgente por aqui.</div>`}
+
+  <div class="grid cols-2" style="margin-bottom:16px;">
+    <div class="card" style="border-left:4px solid var(--bad);">
+      <h3 style="color:var(--bad);">🔴 Crítico — comprar agora</h3>
+      <p class="sub" style="margin-bottom:8px;">Estoque cobre menos de 25% da meta mensal</p>
+      ${criticos.length? criticos.map(p=>cardInsumo(p,'bad','comprar')).join('')
+        : '<div class="empty" style="padding:12px 0;">Nenhum item em estado crítico. ✅</div>'}
     </div>
-    <div class="card">
-      <h3 style="color:var(--warn);">Pedido feito — aguardando</h3>
-      ${pedidoFeito.length? pedidoFeito.map(p=>`
-        <div class="card" style="margin-top:10px; box-shadow:none; border-color:var(--warn);">
-          <b>${p.nome}</b>
-          <div class="sub">Disponível: ${disponivel(p)} · Mínimo: ${p.estoqueMin}</div>
-          <div style="display:flex; gap:6px; margin-top:8px;">
-            <button class="btn small" onclick="abrirRecebimento('${p.id}')">Marcar como recebido</button>
-            <button class="btn ghost small" onclick="voltarParaComprar('${p.id}')">Voltar</button>
-          </div>
-        </div>`).join('') : `<div class="empty" style="padding:20px 10px;">Nenhum pedido em andamento.</div>`}
-    </div>
-    <div class="card">
-      <h3 style="color:var(--ok);">Recebido recentemente</h3>
-      ${recentes.length? recentes.map(c=>`
-        <div class="card" style="margin-top:10px; box-shadow:none; border-color:var(--ok);">
-          <b>${c.item}</b>
-          <div class="sub">${fmtData(c.data)} · ${c.quantidade}un · ${brl(c.valorTotal)}${c.fornecedor? ' · '+c.fornecedor : ''}</div>
-        </div>`).join('') : `<div class="empty" style="padding:20px 10px;">Nenhuma compra registrada ainda.</div>`}
+    <div class="card" style="border-left:4px solid var(--warn);">
+      <h3 style="color:var(--warn);">⚠️ Alerta — planejar compra</h3>
+      <p class="sub" style="margin-bottom:8px;">Estoque cobre entre 25% e 50% da meta mensal</p>
+      ${alerta.length? alerta.map(p=>cardInsumo(p,'warn','comprar')).join('')
+        : '<div class="empty" style="padding:12px 0;">Nenhum item em alerta.</div>'}
     </div>
   </div>
-  <div class="note" style="margin-top:16px;"><b>Como funciona:</b> quando um atendimento é agendado, o sistema reserva automaticamente os insumos necessários. Se o estoque disponível (estoque total − reservado) cair no ou abaixo do mínimo, o insumo aparece sozinho na coluna "Precisa comprar". Mova para "Pedido feito" quando encomendar ao fornecedor, e para "Recebido" quando o material chegar — isso atualiza o estoque e lança a despesa no Financeiro automaticamente.</div>
+
+  <div class="grid cols-2" style="margin-bottom:16px;">
+    <div class="card" style="border-left:4px solid var(--warn);">
+      <h3 style="color:var(--warn);">📦 Pedido feito — aguardando chegada</h3>
+      ${pedidoFeito.length? pedidoFeito.map(p=>cardInsumo(p,'warn','receber')).join('')
+        : '<div class="empty" style="padding:12px 0;">Nenhum pedido pendente.</div>'}
+    </div>
+    <div class="card" style="border-left:4px solid var(--ok);">
+      <h3 style="color:var(--ok);">✅ Estoque OK</h3>
+      <p class="sub" style="margin-bottom:8px;">Cobre mais de 50% da meta mensal</p>
+      ${ok.length? ok.map(p=>{
+        const cob=coberturaInsumo(p);
+        return `<div style="padding:6px 0; border-bottom:1px solid var(--line); font-size:.85rem;">
+          <b>${p.nome}</b> <span class="sub" style="color:var(--ok)">${cob.label}</span>
+        </div>`;
+      }).join('') : '<div class="empty" style="padding:12px 0;">—</div>'}
+    </div>
+  </div>
+
+  ${recentes.length? `<div class="card">
+    <h3>Compras recentes</h3>
+    <table><thead><tr><th>Data</th><th>Item</th><th>Qtd</th><th>Valor</th><th>Fornecedor</th></tr></thead><tbody>
+      ${recentes.map(c=>`<tr><td>${fmtData(c.data)}</td><td>${c.item}</td><td>${c.quantidade}un</td><td>${brl(c.valorTotal)}</td><td>${c.fornecedor||'—'}</td></tr>`).join('')}
+    </tbody></table>
+  </div>`:''}
   `;
 }
 function wireCompras(){
@@ -1677,10 +1965,50 @@ async function excluirFornecedor(id){
 }
 
 /* ============ VIEW: FINANCEIRO ============ */
+function viewDRE(){
+  const mesAtual = todayISO().slice(0,7);
+  const mesNome = new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'});
+  const recMes = DB.financeiro.filter(f=>f.tipo==='receita'&&f.data&&f.data.slice(0,7)===mesAtual);
+  const despMes = DB.financeiro.filter(f=>f.tipo==='despesa'&&f.data&&f.data.slice(0,7)===mesAtual);
+  const recBruta = recMes.reduce((s,f)=>s+Number(f.valor),0);
+  const custoServicos = recMes.reduce((s,f)=>{
+    if(!f.itens) return s;
+    return s + f.itens.reduce((ss,it)=>ss + (calcularCustoProtocolo(it.protId)||0)*it.sessoes + calcularCustoSala(DB.protocolos.find(p=>p.id===it.protId)?.duracaoMin||60)*it.sessoes,0);
+  },0);
+  const lucroBruto = recBruta - custoServicos;
+  const despFixas = despMes.filter(f=>f.categoria==='Custo fixo').reduce((s,f)=>s+Number(f.valor),0);
+  const despVariaveis = despMes.filter(f=>f.categoria!=='Custo fixo').reduce((s,f)=>s+Number(f.valor),0);
+  const lucroOp = lucroBruto - despFixas - despVariaveis;
+  const row = (label,val,destaque,indent)=>`<tr style="${destaque?'border-top:2px solid var(--copper);font-weight:700;':''}">
+    <td style="padding:6px 4px;${indent?'padding-left:20px;color:var(--cream-dim)':''}">${label}</td>
+    <td style="text-align:right;padding:6px 4px;color:${val<0?'var(--bad)':'inherit'}">${brl(Math.abs(val))}${val<0?' (-)':''}</td>
+  </tr>`;
+  return `<div class="card" style="max-width:500px;">
+    <h3>DRE — ${mesNome}</h3>
+    <p class="sub" style="margin-bottom:14px;">Demonstração do Resultado do Exercício</p>
+    <table style="width:100%;border-collapse:collapse;">
+      ${row('(+) Receita bruta de serviços', recBruta, false, false)}
+      ${row('(-) Custo dos serviços (insumos + sala)', custoServicos, false, true)}
+      ${row('= Lucro bruto', lucroBruto, true, false)}
+      ${row('(-) Despesas fixas (cartão, contador, mktg, pró-labore)', despFixas, false, true)}
+      ${row('(-) Outras despesas variáveis', despVariaveis, false, true)}
+      ${row('= Resultado operacional (lucro líquido)', lucroOp, true, false)}
+    </table>
+    <div style="margin-top:12px;padding:10px;background:var(--bg-elev);border-radius:8px;font-size:.8rem;color:var(--cream-dim);">
+      Margem líquida: <b style="color:${lucroOp>=0?'var(--ok)':'var(--bad)'}">${recBruta>0?(lucroOp/recBruta*100).toFixed(1):0}%</b> · 
+      Ponto de equilíbrio: <b>${brl(despFixas+despVariaveis)}/mês</b>
+    </div>
+  </div>`;
+}
 function viewFinanceiro(){
   const lista = [...DB.financeiro].sort((a,b)=>b.data.localeCompare(a.data));
   const tot = totaisFinanceiro(DB.financeiro);
   return `
+  <div style="display:flex;gap:8px;margin-bottom:16px;max-width:660px;">
+    <button class="btn ghost" id="btnVerDRE" style="flex:1;">📊 Ver DRE do mês</button>
+    <button class="btn ghost" id="btnLancarFixos" onclick="lancarCustosFixos()" style="flex:1;">📅 Lançar custos fixos</button>
+  </div>
+  <div id="dreBox" style="display:none;margin-bottom:16px;"></div>
   <div class="section-title">
     <div><h2>Financeiro</h2><p>Todos os lançamentos da conta PJ</p></div>
     <button class="btn" id="btnNovoLancamento">+ Novo lançamento</button>
@@ -1702,6 +2030,11 @@ function viewFinanceiro(){
   </div>`;
 }
 function wireFinanceiro(){
+  document.getElementById('btnVerDRE')?.addEventListener('click', ()=>{
+    const box = document.getElementById('dreBox');
+    if(box.style.display==='none'){ box.innerHTML=viewDRE(); box.style.display='block'; }
+    else box.style.display='none';
+  });
   document.getElementById('btnNovoLancamento')?.addEventListener('click', ()=>{
     openModal(`<h3>Novo lançamento</h3>
       <div class="field"><label>Tipo</label><select id="mFinTipo"><option value="receita">Receita</option><option value="despesa">Despesa</option></select></div>
@@ -1726,6 +2059,7 @@ async function excluirLancamento(id){
 
 /* ============ VIEW: CONFIG ============ */
 function viewConfig(){
+
   const c = DB.config;
   const custoFixo = (c.parcelaCartao||0)+(c.marketing||0)+(c.contador||0)+(c.prolabore||0);
   return `
@@ -1746,8 +2080,21 @@ function viewConfig(){
       <div class="field"><label>Valor pendente da compra Fase 2</label><input type="number" step="0.01" id="cfgFaseZero" value="${c.faseZeroPendente||0}"></div>
       <div class="field"><label>Custo mensal da faculdade (informativo)</label><input type="number" step="0.01" id="cfgFaculdade" value="${c.faculdadeMensal||0}"></div>
       <div class="field"><label>Meta de atendimentos por mês (para rateio do custo fixo)</label><input type="number" id="cfgMeta" value="${c.metaAtendimentos||20}"></div>
-      <div class="field"><label>Link do formulário público de anamnese (depois de publicar no Netlify, cole aqui)</label><input id="cfgLinkFicha" value="${c.linkFichaPublica||''}" placeholder="https://ficha-rc-regenerativa.netlify.app/"></div>
+      <div class="field"><label>Link da ficha de anamnese (GitHub Pages)</label><input id="cfgLinkFicha" value="${c.linkFichaPublica||''}" placeholder="https://rafamedcosta-gif.github.io/rc-regenerativa-sistema/ficha-anamnese-rc.html"></div>
       <button class="btn" style="margin-top:8px;" onclick="salvarConfig()">Salvar configurações</button>
+      <button class="btn ghost" style="margin-top:8px; margin-left:8px;" onclick="lancarCustosFixos()">📅 Lançar custos fixos do mês</button>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h3>Backup e segurança dos dados</h3>
+      <p class="sub" style="margin-bottom:12px;">Os dados ficam no navegador deste dispositivo. Exporte regularmente para não perder nada.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn" onclick="exportarDados()">⬇️ Exportar dados (backup)</button>
+        <button class="btn ghost" onclick="document.getElementById('importFile').click()">⬆️ Importar backup</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importarDados(this)">
+      </div>
+      <p class="note" style="margin-top:8px;">Exporte pelo menos 1x por semana. Em caso de troca de dispositivo, importe o arquivo de backup.</p>
+    </div>
+    <div style="display:none">
     </div>
   </div>
   <div class="card" style="margin-top:16px;">
@@ -1915,6 +2262,73 @@ async function importarFicha(){
   }
 }
 
+function exportarDados(){
+  const dados = {
+    versao: '1.0', exportadoEm: agora(),
+    clientes: DB.clientes, produtos: DB.produtos, procedimentos: DB.procedimentos,
+    agendamentos: DB.agendamentos, financeiro: DB.financeiro, compras: DB.compras,
+    config: DB.config, anamneses: DB.anamneses, evolucoes: DB.evolucoes,
+    exames: DB.exames, protocolos: DB.protocolos, fornecedores: DB.fornecedores,
+    usuarios: DB.usuarios, pacotes: DB.pacotes
+  };
+  const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `RC-backup-${todayISO()}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('✅ Backup exportado com sucesso!');
+}
+async function importarDados(input){
+  const file = input.files[0]; if(!file) return;
+  if(!confirm('Importar este backup vai SUBSTITUIR todos os dados atuais. Tem certeza?')) return;
+  try{
+    const text = await file.text();
+    const dados = JSON.parse(text);
+    DB.clientes = dados.clientes||[];
+    DB.produtos = dados.produtos||[];
+    DB.procedimentos = dados.procedimentos||[];
+    DB.agendamentos = dados.agendamentos||[];
+    DB.financeiro = dados.financeiro||[];
+    DB.compras = dados.compras||[];
+    DB.config = dados.config||{};
+    DB.anamneses = dados.anamneses||[];
+    DB.evolucoes = dados.evolucoes||[];
+    DB.exames = dados.exames||[];
+    DB.protocolos = dados.protocolos||[];
+    DB.fornecedores = dados.fornecedores||[];
+    DB.usuarios = dados.usuarios||[];
+    DB.pacotes = dados.pacotes||[];
+    await saveAll();
+    render('dashboard');
+    toast('✅ Backup importado com sucesso!');
+  }catch(e){ toast('Erro ao importar — verifique se o arquivo é válido'); }
+  input.value='';
+}
+
+async function lancarCustosFixos(){
+  const mes = new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'});
+  const jaLancado = DB.financeiro.find(f=>f.descricao&&f.descricao.includes('Custo fixo')&&f.data&&f.data.slice(0,7)===todayISO().slice(0,7));
+  if(jaLancado){ toast('Custos fixos deste mês já foram lançados'); return; }
+  if(!confirm(`Lançar os custos fixos de ${mes} no financeiro?
+
+Serão criados lançamentos para: cartão, marketing, contador e pró-labore.`)) return;
+  const c = DB.config;
+  const data = todayISO();
+  const lancamentos = [
+    { desc:'Parcela cartão — equipamentos', valor:c.parcelaCartao||0 },
+    { desc:'Marketing / redes sociais', valor:c.marketing||0 },
+    { desc:'Contador', valor:c.contador||0 },
+    { desc:'Pró-labore', valor:c.prolabore||0 },
+  ].filter(l=>l.valor>0);
+  lancamentos.forEach(l=>{
+    DB.financeiro.push({ id:uid(), data, tipo:'despesa', categoria:'Custo fixo', descricao:`${l.desc} — ${mes}`, valor:l.valor });
+  });
+  await sSet('financeiro', DB.financeiro);
+  const total = lancamentos.reduce((s,l)=>s+l.valor,0);
+  toast(`✅ ${lancamentos.length} lançamentos criados — total R$ ${total.toFixed(2).replace('.',',')} lançado no financeiro`);
+}
+
 async function salvarConfig(){
   DB.config.parcelaCartao = Number(document.getElementById('cfgCartao').value)||0;
   DB.config.marketing = Number(document.getElementById('cfgMarketing').value)||0;
@@ -1935,7 +2349,6 @@ function wireView(view){
   else if(view==='agenda') wireAgenda();
   else if(view==='protocolos') wireProtocolos();
   else if(view==='produtos') wireProdutos();
-  else if(view==='pacotes') wirePacotes();
   else if(view==='pedidos') wirePedidos();
   else if(view==='compras') wireCompras();
   else if(view==='fornecedores') wireFornecedores();
@@ -2039,6 +2452,11 @@ function renderTabsForUser(){
     btn.style.display = podeVer(modulo)? '' : 'none';
   });
 }
+
+/* ============ ATALHOS GLOBAIS ============ */
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') closeModal();
+});
 
 /* ============ INIT ============ */
 (async function init(){
