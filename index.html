@@ -1623,28 +1623,90 @@ function viewPedidos(){
   const totalMes = pedidos.filter(p=>p.data&&p.data.slice(0,7)===todayISO().slice(0,7)).reduce((s,p)=>s+Number(p.valor),0);
   return `
   <div class="section-title">
-    <div><h2>Pedidos</h2><p>Vendas fechadas com pacientes — cada pedido gera receita no financeiro</p></div>
+    <div><h2>Pedidos</h2><p>Vendas fechadas com pacientes — MC calculada automaticamente por protocolo</p></div>
     <button class="btn" id="btnNovoPedido">+ Novo pedido</button>
   </div>
   <div class="card" style="margin-bottom:16px;">
     <div style="display:flex;gap:24px;flex-wrap:wrap;">
-      <div><div class="sub">Total do mês</div><div class="big">${brl(totalMes)}</div></div>
+      <div><div class="sub">Receita do mês</div><div class="big">${brl(totalMes)}</div></div>
       <div><div class="sub">Pedidos no mês</div><div class="big">${pedidos.filter(p=>p.data&&p.data.slice(0,7)===todayISO().slice(0,7)).length}</div></div>
     </div>
   </div>
   <div class="card">
-    ${pedidos.length? `<table><thead><tr><th>Código</th><th>Data</th><th>Serviço / Paciente</th><th>Sessões</th><th>Valor</th><th></th></tr></thead><tbody>
-      ${pedidos.map(p=>`<tr>
-        <td><b>${p.codigo||'—'}</b></td>
-        <td>${fmtData(p.data)}</td>
-        <td>${p.descricao}</td>
-        <td>${p.sessoes||1}</td>
-        <td><b>${brl(p.valor)}</b></td>
-        <td><button class="btn ghost small" onclick="excluirPedido('${p.id}')">Excluir</button></td>
-      </tr>`).join('')}
+    ${pedidos.length? `<table><thead><tr>
+      <th>Código</th><th>Data</th><th>Paciente / Serviço</th><th>Sessões</th><th>Valor</th><th>MC</th><th>Lucro</th><th></th>
+    </tr></thead><tbody>
+      ${pedidos.map(p=>{
+        // Calcular MC para cada pedido baseado nos itens
+        let custoVar=0, custoFixoTotal=0;
+        const itens = p.itens||[];
+        if(itens.length){
+          itens.forEach(it=>{
+            custoVar += (calcularCustoProtocolo(it.protId)||0)*it.sessoes + calcularCustoSala(DB.protocolos.find(x=>x.id===it.protId)?.duracaoMin||60)*it.sessoes;
+            custoFixoTotal += calcularCustoFixoRateado()*it.sessoes;
+          });
+        }
+        const mc = p.valor - custoVar;
+        const lucro = p.valor - custoVar - custoFixoTotal;
+        const mcPerc = p.valor>0? (mc/p.valor*100):0;
+        const corMC = mc>=0?'var(--ok)':'var(--bad)';
+        const corLucro = lucro>=0?'var(--ok)':'var(--bad)';
+        return `<tr>
+          <td><b>${p.codigo||'—'}</b></td>
+          <td>${fmtData(p.data)}</td>
+          <td>${p.descricao}</td>
+          <td>${p.sessoes||itens.reduce((s,i)=>s+i.sessoes,0)||1}</td>
+          <td><b>${brl(p.valor)}</b></td>
+          <td><span style="color:${corMC};font-weight:600;">${itens.length?brl(mc)+' ('+mcPerc.toFixed(0)+'%)':'—'}</span></td>
+          <td><span style="color:${corLucro};font-weight:600;">${itens.length?brl(lucro):'—'}</span></td>
+          <td style="display:flex;gap:4px;">
+            <button class="btn small" onclick="verDetalhesPedido('${p.id}')">Ver</button>
+            <button class="btn ghost small" onclick="excluirPedido('${p.id}')">Excluir</button>
+          </td>
+        </tr>`;
+      }).join('')}
     </tbody></table>`
     : `<div class="empty"><b>Nenhum pedido registrado</b>Clique em "+ Novo pedido" para registrar um atendimento.</div>`}
   </div>`;
+}
+
+function verDetalhesPedido(id){
+  const p = DB.financeiro.find(x=>x.id===id); if(!p) return;
+  const cli = DB.clientes.find(x=>x.id===p.clienteId);
+  const itens = p.itens||[];
+  let custoVar=0, custoFixoTotal=0;
+  const linhasItens = itens.map(it=>{
+    const prot = DB.protocolos.find(x=>x.id===it.protId);
+    const ci = (calcularCustoProtocolo(it.protId)||0)*it.sessoes;
+    const cs = calcularCustoSala(prot?.duracaoMin||60)*it.sessoes;
+    const cf = calcularCustoFixoRateado()*it.sessoes;
+    custoVar += ci+cs; custoFixoTotal += cf;
+    return `<tr><td>${prot?.titulo||it.protId}</td><td>${it.sessoes}x</td><td>${it.freq||'—'}</td><td>${brl(ci)}</td><td>${brl(cs)}</td><td>${brl(cf)}</td></tr>`;
+  }).join('');
+  const mc = p.valor - custoVar;
+  const lucro = p.valor - custoVar - custoFixoTotal;
+  const mcPerc = p.valor>0?(mc/p.valor*100):0;
+  openModal(`<h3>${p.codigo||'Pedido'} — ${cli?.nome||'Paciente'}</h3>
+    <div class="sub" style="margin-bottom:12px;">${fmtData(p.data)} · ${p.descricao}</div>
+    ${itens.length?`
+    <table style="width:100%;font-size:.8rem;margin-bottom:12px;">
+      <thead><tr style="background:var(--bg-elev);">
+        <th style="padding:4px 6px;text-align:left;">Protocolo</th>
+        <th>Sessões</th><th>Freq.</th>
+        <th>Insumos</th><th>Sala</th><th>Fixo</th>
+      </tr></thead>
+      <tbody>${linhasItens}</tbody>
+    </table>
+    <div style="background:var(--bg-elev);border-radius:10px;padding:12px;">
+      <table style="width:100%;font-size:.85rem;">
+        <tr><td style="color:var(--cream-dim)">Custo variável total</td><td style="text-align:right">${brl(custoVar)}</td></tr>
+        <tr><td style="color:var(--cream-dim)">Custo fixo rateado</td><td style="text-align:right">${brl(custoFixoTotal)}</td></tr>
+        <tr style="border-top:2px solid var(--copper);"><td><b>Preço de venda</b></td><td style="text-align:right"><b>${brl(p.valor)}</b></td></tr>
+        <tr><td style="color:${mc>=0?'var(--ok)':'var(--bad)'}"><b>MC (${mcPerc.toFixed(0)}%)</b></td><td style="text-align:right;color:${mc>=0?'var(--ok)':'var(--bad)'}"><b>${brl(mc)}</b></td></tr>
+        <tr><td style="color:${lucro>=0?'var(--ok)':'var(--bad)'}"><b>Lucro líquido</b></td><td style="text-align:right;color:${lucro>=0?'var(--ok)':'var(--bad)'}"><b>${brl(lucro)}</b></td></tr>
+      </table>
+    </div>` : '<div class="sub">Pedido sem itens detalhados (importado de versão anterior).</div>'}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Fechar</button><button class="btn" style="background:var(--bad);" onclick="closeModal();excluirPedido('${id}')">Excluir pedido</button></div>`);
 }
 function wirePedidos(){
   document.getElementById('btnNovoPedido')?.addEventListener('click', ()=>{
