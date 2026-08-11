@@ -150,11 +150,10 @@
   <nav class="tabs" id="tabs">
     <button data-view="dashboard" class="active">Painel</button>
     <button data-view="clientes">Pacientes</button>
-    <button data-view="prontuarios">Prontuários</button>
     <button data-view="agenda">Agenda</button>
     <button data-view="protocolos">Protocolos</button>
     <button data-view="produtos">Produtos</button>
-    <button data-view="pedidos">Pacotes</button>
+    <button data-view="pedidos">Pedidos</button>
     <button data-view="compras">Compras</button>
     <button data-view="fornecedores">Fornecedores</button>
     <button data-view="financeiro">Financeiro</button>
@@ -368,7 +367,6 @@ function render(view){
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
   if(view==='dashboard') main.innerHTML = viewDashboard();
   else if(view==='clientes') main.innerHTML = viewClientes();
-  else if(view==='prontuarios') main.innerHTML = viewProntuarios();
   else if(view==='agenda') main.innerHTML = viewAgenda();
   else if(view==='protocolos') main.innerHTML = viewProtocolos();
   else if(view==='produtos') main.innerHTML = viewProdutos();
@@ -507,7 +505,7 @@ function viewClientes(){
       ${DB.clientes.map(c=>`<tr>
         <td><b>${c.nome}</b></td><td>${c.telefone||'—'}</td><td>${c.email||'—'}</td><td>${fmtData(c.criadoEm)}</td>
         <td>
-          <button class="btn small" onclick="abrirProntuario('${c.id}')">Ver prontuário</button>
+          <button class="btn small" onclick="abrirProntuario('${c.id}')">Abrir prontuário</button>
           <button class="btn ghost small" onclick="excluirCliente('${c.id}')">Excluir</button>
         </td>
       </tr>`).join('')}
@@ -518,7 +516,7 @@ function filtrarPacientes(q){
   const t = q.toLowerCase();
   const filt = DB.clientes.filter(c=>(c.nome||'').toLowerCase().includes(t)||(c.telefone||'').toLowerCase().includes(t)||(c.email||'').toLowerCase().includes(t));
   const tbody = document.querySelector('#main tbody');
-  if(tbody) tbody.innerHTML = filt.map(c=>`<tr><td><b>${c.nome}</b></td><td>${c.telefone||'—'}</td><td>${c.email||'—'}</td><td>${fmtData(c.criadoEm)}</td><td><button class="btn small" onclick="abrirProntuario('${c.id}')">Ver prontuário</button><button class="btn ghost small" onclick="excluirCliente('${c.id}')">Excluir</button></td></tr>`).join('');
+  if(tbody) tbody.innerHTML = filt.map(c=>`<tr><td><b>${c.nome}</b></td><td>${c.telefone||'—'}</td><td>${c.email||'—'}</td><td>${fmtData(c.criadoEm)}</td><td><button class="btn small" onclick="abrirProntuario('${c.id}')">Abrir prontuário</button><button class="btn ghost small" onclick="excluirCliente('${c.id}')">Excluir</button></td></tr>`).join('');
 }
 function wireClientes(){
   document.getElementById('btnNovoCliente')?.addEventListener('click', ()=>{
@@ -746,43 +744,75 @@ function compressImage(file, maxW, quality){
 }
 function prontuarioEvolucao(cli){
   const lista = DB.evolucoes.filter(e=>e.clienteId===cli.id).sort((a,b)=>b.data.localeCompare(a.data));
-  return `<div class="section-title"><div></div><button class="btn" id="btnNovaEvolucao">+ Novo registro de evolução</button></div>
-  <div class="grid cols-2">
-    ${lista.length? lista.map(e=>`
-      <div class="card">
-        <h3>${fmtData(e.data)}</h3>
-        ${e.texto? `<p style="font-size:.85rem; line-height:1.5;">${e.texto}</p>`:''}
-        <div style="display:flex; gap:10px; margin-top:8px;">
-          ${e.fotoAntes? `<div><div class="sub">Antes</div><img src="${e.fotoAntes}" style="width:100%; max-width:180px; border-radius:8px; border:1px solid var(--line);"></div>`:''}
-          ${e.fotoDepois? `<div><div class="sub">Depois</div><img src="${e.fotoDepois}" style="width:100%; max-width:180px; border-radius:8px; border:1px solid var(--line);"></div>`:''}
-        </div>
-        <button class="btn ghost small" style="margin-top:10px;" onclick="excluirEvolucao('${e.id}')">Excluir registro</button>
-      </div>`).join('') : `<div class="empty" style="grid-column:1/-1;"><b>Nenhum registro de evolução ainda</b>Use "Novo registro" para anotar a evolução e anexar fotos de antes/depois.</div>`}
-  </div>`;
+  // Agrupar por protocolo/procedimento
+  const grupos = {};
+  lista.forEach(e=>{
+    const key = e.protocoloId||'geral';
+    if(!grupos[key]) grupos[key]=[];
+    grupos[key].push(e);
+  });
+  const gruposHtml = Object.entries(grupos).map(([key,evs])=>{
+    const prot = DB.protocolos.find(p=>p.id===key);
+    const titulo = prot? prot.titulo : 'Registros gerais';
+    return `<div class="card" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">${titulo}</h3>
+      ${evs.map(e=>`
+        <div style="border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <b>${fmtData(e.data)}</b>
+            <button class="btn ghost small" onclick="excluirEvolucao('${e.id}')">Excluir</button>
+          </div>
+          ${e.texto? `<p style="font-size:.85rem;line-height:1.5;margin-bottom:10px;">${e.texto}</p>`:''}
+          ${(e.fotos||[]).length||e.fotoAntes? `
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              ${e.fotoAntes?`<div style="text-align:center;"><div class="sub" style="font-size:.7rem;margin-bottom:4px;">📷 Antes</div><img src="${e.fotoAntes}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line);"></div>`:''}
+              ${(e.fotos||[]).map((f,i)=>`<div style="text-align:center;"><div class="sub" style="font-size:.7rem;margin-bottom:4px;">📷 ${fmtData(e.data)}</div><img src="${f}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line);"></div>`).join('')}
+              ${e.fotoDepois?`<div style="text-align:center;"><div class="sub" style="font-size:.7rem;margin-bottom:4px;">📷 Depois</div><img src="${e.fotoDepois}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line);"></div>`:''}
+            </div>` : ''}
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+  return `<div class="section-title"><div></div><button class="btn" id="btnNovaEvolucao">+ Novo registro</button></div>
+  ${lista.length? gruposHtml : `<div class="empty"><b>Nenhum registro de evolução ainda</b>Clique em "+ Novo registro" para adicionar fotos e anotações por procedimento.</div>`}`;
 }
 function wireEvolucao(cli){
   document.getElementById('btnNovaEvolucao')?.addEventListener('click', ()=>{
+    const protOpts = DB.protocolos.sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt-BR'))
+      .map(p=>`<option value="${p.id}">${p.titulo||p.id}</option>`).join('');
     openModal(`<h3>Novo registro de evolução</h3>
+      <div class="field"><label>Procedimento / Protocolo</label>
+        <select id="mEvProtocolo"><option value="">Geral (sem protocolo específico)</option>${protOpts}</select>
+      </div>
       <div class="field"><label>Data</label><input type="date" id="mEvData" value="${todayISO()}"></div>
-      <div class="field"><label>Observações / evolução do paciente</label><textarea id="mEvTexto" rows="3" placeholder="Ex.: pele mais uniforme, redução de oleosidade, paciente relatou..."></textarea></div>
-      <div class="field"><label>Foto — Antes</label><input type="file" accept="image/*" id="mEvFotoAntes"></div>
-      <div class="field"><label>Foto — Depois</label><input type="file" accept="image/*" id="mEvFotoDepois"></div>
+      <div class="field"><label>Observações clínicas</label><textarea id="mEvTexto" rows="3" placeholder="Ex.: pele mais uniforme, redução de oleosidade, paciente relatou..."></textarea></div>
+      <div class="field"><label>Fotos da sessão (pode selecionar várias)</label>
+        <input type="file" accept="image/*" id="mEvFotos" multiple>
+        <p class="note">Selecione uma ou mais fotos. Elas aparecem lado a lado na evolução.</p>
+      </div>
       <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" id="btnSalvarEvolucao">Salvar</button></div>`);
     document.getElementById('btnSalvarEvolucao').addEventListener('click', ()=>salvarEvolucao(cli.id));
   });
 }
 async function salvarEvolucao(clienteId){
-  const fAntes = document.getElementById('mEvFotoAntes').files[0];
-  const fDepois = document.getElementById('mEvFotoDepois').files[0];
-  const entry = { id:uid(), clienteId, data:document.getElementById('mEvData').value||todayISO(), texto:document.getElementById('mEvTexto').value.trim() };
-  toast('Salvando registro...');
+  const filesInput = document.getElementById('mEvFotos');
+  const files = filesInput? Array.from(filesInput.files) : [];
+  const entry = {
+    id:uid(), clienteId,
+    protocoloId: document.getElementById('mEvProtocolo')?.value||'',
+    data: document.getElementById('mEvData').value||todayISO(),
+    texto: document.getElementById('mEvTexto').value.trim(),
+    fotos: []
+  };
+  if(files.length){ toast('Processando fotos...'); }
   try{
-    if(fAntes) entry.fotoAntes = await compressImage(fAntes, 480, 0.7);
-    if(fDepois) entry.fotoDepois = await compressImage(fDepois, 480, 0.7);
+    for(const f of files){
+      const compressed = await compressImage(f, 600, 0.75);
+      entry.fotos.push(compressed);
+    }
   }catch(e){ console.error(e); }
   DB.evolucoes.push(entry);
   await sSet('evolucoes', DB.evolucoes);
-  closeModal(); render('prontuario'); toast('Evolução registrada');
+  closeModal(); render('prontuario'); toast(`Evolução registrada com ${files.length} foto(s)`);
 }
 async function excluirEvolucao(id){
   DB.evolucoes = DB.evolucoes.filter(e=>e.id!==id);
@@ -901,13 +931,28 @@ async function salvarAgendamento(){
   if(!protocoloId){ toast('Selecione um protocolo'); return; }
   const valor = Number(document.getElementById('mAgValor').value)||0;
   const obs = document.getElementById('mAgObs')?.value.trim()||'';
-  const ag = { id:uid(), clienteId, protocoloId, data:document.getElementById('mAgData').value,
-    hora:document.getElementById('mAgHora').value, status:'agendado', valor, obs };
+  const dataAg = document.getElementById('mAgData').value;
+  const horaAg = document.getElementById('mAgHora').value;
+  // Verificar conflito de horário
+  const conflito = DB.agendamentos.find(a=>a.data===dataAg && a.hora===horaAg && a.status==='agendado');
+  if(conflito){
+    const cliConf = DB.clientes.find(c=>c.id===conflito.clienteId);
+    toast(`⚠️ Horário já ocupado — ${cliConf?cliConf.nome:'outro paciente'} está agendado para ${fmtData(dataAg)} às ${horaAg}`);
+    return;
+  }
+  const ag = { id:uid(), clienteId, protocoloId, data:dataAg,
+    hora:horaAg, status:'agendado', valor, obs };
   DB.agendamentos.push(ag);
   // reserva insumos do protocolo no estoque
   const protocolo = DB.protocolos.find(p=>p.id===protocoloId);
   if(protocolo && protocolo.itens){
-    protocolo.itens.forEach(it=>{ const p=DB.produtos.find(x=>x.id===it.produtoId); if(p&&p.tipo==='insumo') p.reservado=(p.reservado||0)+it.quantidade; });
+    protocolo.itens.forEach(it=>{
+      const p=DB.produtos.find(x=>x.id===it.produtoId);
+      if(p&&p.tipo==='insumo'){
+        const rendimento = p.unidades||1;
+        p.reservado=(p.reservado||0)+(it.quantidade/rendimento);
+      }
+    });
     await sSet('produtos', DB.produtos);
   }
   await sSet('agendamentos', DB.agendamentos);
@@ -980,8 +1025,15 @@ async function concluirAgendamento(id){
     protocolo.itens.forEach(it=>{
       const p = DB.produtos.find(x=>x.id===it.produtoId);
       if(p && p.tipo==='insumo'){
-        p.estoque = Math.max(0, p.estoque - it.quantidade);
-        p.reservado = Math.max(0, (p.reservado||0) - it.quantidade);
+        // desconta em USOS — converte para unidades físicas quando necessário
+        const rendimento = p.unidades || 1;
+        const usosConsumidos = it.quantidade;
+        // usosConsumidos ÷ rendimento = unidades físicas consumidas
+        const unidadesFisicasConsumidas = usosConsumidos / rendimento;
+        p.estoque = Math.max(0, p.estoque - unidadesFisicasConsumidas);
+        // reserva também foi em usos — libera proporcionalmente
+        const reservaLiberar = usosConsumidos / rendimento;
+        p.reservado = Math.max(0, (p.reservado||0) - reservaLiberar);
       }
     });
     await sSet('produtos', DB.produtos);
@@ -999,7 +1051,7 @@ async function excluirAgendamento(id){
   if(ag.status==='agendado'){
     const protocolo = DB.protocolos.find(p=>p.id===ag.protocoloId);
     if(protocolo && protocolo.itens){
-      protocolo.itens.forEach(it=>{ const p=DB.produtos.find(x=>x.id===it.produtoId); if(p&&p.tipo==='insumo') p.reservado=Math.max(0,(p.reservado||0)-it.quantidade); });
+      protocolo.itens.forEach(it=>{ const p=DB.produtos.find(x=>x.id===it.produtoId); if(p&&p.tipo==='insumo'){ const r=p.unidades||1; p.reservado=Math.max(0,(p.reservado||0)-(it.quantidade/r)); } });
       await sSet('produtos', DB.produtos);
     }
   }
@@ -1400,7 +1452,7 @@ function viewPacotes(){
   return `
   <div class="section-title">
     <div><h2>Pacotes</h2><p>O que a clínica vende — nome comercial, protocolo, número de sessões e preço. Código gerado automaticamente.</p></div>
-    <button class="btn" id="btnNovoPacote">+ Novo pacote</button>
+    <button class="btn" id="btnNovoPacote">+ Novo pedido</button>
   </div>
   <div class="card">
     ${lista.length? `<table><thead><tr>
@@ -1434,7 +1486,7 @@ function wirePacotes(){
   document.getElementById('btnNovoPacote')?.addEventListener('click', ()=>{
     const cod = proximoCodigo(DB.pacotes,'PKG');
     const protsOpts = DB.protocolos.map(p=>`<option value="${p.id}">${p.titulo||p.codigo||p.id}</option>`).join('');
-    openModal(`<h3>Novo pacote</h3>
+    openModal(`<h3>Novo pedido</h3>
       <div class="field"><label>Código (gerado automaticamente)</label>
         <input value="${cod}" readonly style="opacity:.7; background:var(--bg-elev);" id="mPkgCodigo">
       </div>
@@ -1515,8 +1567,8 @@ function viewPedidos(){
   const totalMes = pedidos.filter(p=>p.data&&p.data.slice(0,7)===todayISO().slice(0,7)).reduce((s,p)=>s+Number(p.valor),0);
   return `
   <div class="section-title">
-    <div><h2>Pacotes</h2><p>Vendas fechadas com pacientes — cada pedido gera receita no financeiro</p></div>
-    <button class="btn" id="btnNovoPedido">+ Novo pacote</button>
+    <div><h2>Pedidos</h2><p>Vendas fechadas com pacientes — cada pedido gera receita no financeiro</p></div>
+    <button class="btn" id="btnNovoPedido">+ Novo pedido</button>
   </div>
   <div class="card" style="margin-bottom:16px;">
     <div style="display:flex;gap:24px;flex-wrap:wrap;">
@@ -1535,7 +1587,7 @@ function viewPedidos(){
         <td><button class="btn ghost small" onclick="excluirPedido('${p.id}')">Excluir</button></td>
       </tr>`).join('')}
     </tbody></table>`
-    : `<div class="empty"><b>Nenhum pacote registrado</b>Clique em "+ Novo pacote" para registrar um atendimento.</div>`}
+    : `<div class="empty"><b>Nenhum pedido registrado</b>Clique em "+ Novo pedido" para registrar um atendimento.</div>`}
   </div>`;
 }
 function wirePedidos(){
@@ -1699,7 +1751,12 @@ async function salvarPedido(){
     if(protocolo && protocolo.itens){
       protocolo.itens.forEach(it=>{
         const p = DB.produtos.find(x=>x.id===it.produtoId);
-        if(p && p.tipo==='insumo') p.reservado = (p.reservado||0) + (it.quantidade * item.sessoes);
+        if(p && p.tipo==='insumo'){
+          // reserva em proporção de unidades físicas (usos ÷ rendimento)
+          const rendimento = p.unidades || 1;
+          const reservaEmUnidades = (it.quantidade * item.sessoes) / rendimento;
+          p.reservado = (p.reservado||0) + reservaEmUnidades;
+        }
       });
     }
     // Cria agendamento da 1ª sessão
@@ -1712,7 +1769,7 @@ async function salvarPedido(){
   await sSet('agendamentos', DB.agendamentos);
   window._itensPedido = [];
   closeModal(); render('pedidos');
-  toast(`✅ ${cod} registrado — 1ª sessão agendada para ${fmtData(dataAg)} às ${horaAg}`);
+  toast(`✅ Pedido ${cod} registrado — 1ª sessão agendada para ${fmtData(dataAg)} às ${horaAg}`);
 }
 async function excluirPedido(id){
   const p = DB.financeiro.find(x=>x.id===id);
@@ -1723,36 +1780,51 @@ async function excluirPedido(id){
 }
 
 /* ============ VIEW: COMPRAS (KANBAN) ============ */
-function disponivel(p){ return p.estoque - (p.reservado||0); }
-/* ============ ESTOQUE INTELIGENTE ============ */
+/* ============ ESTOQUE POR RENDIMENTO ============ */
+// estoque é sempre em UNIDADES FÍSICAS
+// rendimento (unidades por compra) fica em p.unidades
+// usos disponíveis = unidades físicas disponíveis × rendimento por unidade
+function usosDisponiveis(p){
+  const unidadesFisicas = Math.max(0, p.estoque - (p.reservado||0));
+  const rendimento = p.unidades || 1; // quantos usos rende 1 unidade física
+  return unidadesFisicas * rendimento;
+}
+// Para compatibilidade com código antigo que usa disponivel()
+function disponivel(p){ return usosDisponiveis(p); }
+
 function coberturaInsumo(produto){
-  // Quantas sessões o estoque atual cobre, considerando todos os protocolos que usam este produto
-  const disp = disponivel(produto);
-  // Encontra o maior consumo por sessão em qualquer protocolo
-  let maxUso = 0;
+  const usosDisp = usosDisponiveis(produto);
+  // Uso por sessão nos protocolos
+  let usoPorSessao = 0;
   DB.protocolos.forEach(pop=>{
     const item = (pop.itens||[]).find(it=>it.produtoId===produto.id);
-    if(item && item.quantidade > maxUso) maxUso = item.quantidade;
+    if(item && item.quantidade > usoPorSessao) usoPorSessao = item.quantidade;
   });
-  if(maxUso === 0) return { sessoes: disp, cor: 'ok', label: `${disp} un (não vinculado a protocolo)` };
-  const sessoes = Math.floor(disp / maxUso);
+  if(usoPorSessao === 0){
+    // Produto não vinculado a protocolo — mostra usos em vez de sessões
+    return { sessoes: usosDisp, cor: 'ok', label: `${usosDisp} usos disponíveis (não vinculado a protocolo)` };
+  }
+  const sessoes = Math.floor(usosDisp / usoPorSessao);
   const meta = DB.config.metaAtendimentos || 20;
   const perc = sessoes / meta;
-  let cor, status;
-  if(perc >= 0.5){ cor='ok'; status='✅ OK'; }
-  else if(perc >= 0.25){ cor='warn'; status='⚠️ Alerta'; }
-  else { cor='bad'; status='🔴 Crítico'; }
-  return { sessoes, maxUso, cor, status, label:`${sessoes} sessões (${maxUso} un/sessão)` };
+  let cor;
+  if(perc >= 0.5) cor='ok';
+  else if(perc >= 0.25) cor='warn';
+  else cor='bad';
+  const unidadesFisicas = produto.estoque - (produto.reservado||0);
+  return {
+    sessoes, usoPorSessao, usosDisp, cor,
+    label: `${sessoes} sessões · ${usosDisp} usos restantes (${unidadesFisicas} un × ${produto.unidades||1} usos/un)`
+  };
 }
 function minutoSugerido(produto){
-  // Calcula mínimo inteligente: 25% da meta de atendimentos × uso por sessão
   const meta = DB.config.metaAtendimentos || 20;
-  let maxUso = 0;
+  let usoPorSessao = 0;
   DB.protocolos.forEach(pop=>{
     const item = (pop.itens||[]).find(it=>it.produtoId===produto.id);
-    if(item && item.quantidade > maxUso) maxUso = item.quantidade;
+    if(item && item.quantidade > usoPorSessao) usoPorSessao = item.quantidade;
   });
-  return Math.ceil(meta * 0.25 * maxUso) || produto.estoqueMin || 1;
+  return Math.ceil(meta * 0.25 * usoPorSessao) || produto.estoqueMin || 1;
 }
 
 
