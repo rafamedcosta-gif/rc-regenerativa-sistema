@@ -5,35 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ficha de Anamnese — RC Estética Regenerativa</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
-/* ============ ASSINATURA ELETRÔNICA ============ */
-let assinaturaVazia = true;
-
-(function(){
-  function setup(){
-    const canvas = document.getElementById('canvasAssinatura');
-    if(!canvas){ setTimeout(setup,300); return; }
-    const dpr = window.devicePixelRatio||1;
-    const r = canvas.getBoundingClientRect();
-    canvas.width = r.width * dpr;
-    canvas.height = r.height * dpr;
-    canvas.style.width = r.width+'px';
-    canvas.style.height = r.height+'px';
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr,dpr);
-    ctx.strokeStyle='#2c1810'; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round';
-    let pen=false;
-    function pt(e){ const b=canvas.getBoundingClientRect(); return e.touches?{x:e.touches[0].clientX-b.left,y:e.touches[0].clientY-b.top}:{x:e.clientX-b.left,y:e.clientY-b.top}; }
-    function dn(e){ e.preventDefault(); pen=true; const p=pt(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
-    function mv(e){ e.preventDefault(); if(!pen)return; const p=pt(e); ctx.lineTo(p.x,p.y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x,p.y); assinaturaVazia=false; }
-    function up(e){ e.preventDefault(); pen=false; ctx.beginPath(); }
-    canvas.addEventListener('mousedown',dn); canvas.addEventListener('mousemove',mv);
-    canvas.addEventListener('mouseup',up); canvas.addEventListener('mouseleave',up);
-    canvas.addEventListener('touchstart',dn,{passive:false}); canvas.addEventListener('touchmove',mv,{passive:false});
-    canvas.addEventListener('touchend',up,{passive:false}); canvas.addEventListener('touchcancel',up,{passive:false});
-    window._sc=canvas; window._sx=ctx; window._sd=dpr;
-  }
-  if(document.readyState==='complete') setup(); else window.addEventListener('load',setup);
-})();
+)();
 
 function limparAssinatura(){
   const c=window._sc,x=window._sx,d=window._sd||1;
@@ -44,6 +16,108 @@ function limparAssinatura(){
 function obterAssinaturaBase64(){
   return (!window._sc||assinaturaVazia)?null:window._sc.toDataURL('image/png');
 }
+
+/* ============ ASSINATURA ELETRÔNICA ============ */
+var _sig = {
+  canvas: null, ctx: null, drawing: false, empty: true,
+
+  init: function(){
+    var c = document.getElementById('canvasAssinatura');
+    if(!c) return;
+    this.canvas = c;
+
+    // Fix canvas internal resolution to match display size
+    var w = c.offsetWidth || 600;
+    var h = 160;
+    c.width = w;
+    c.height = h;
+
+    var x = c.getContext('2d');
+    this.ctx = x;
+    x.strokeStyle = '#2c1810';
+    x.lineWidth = 2;
+    x.lineCap = 'round';
+    x.lineJoin = 'round';
+    x.fillStyle = '#fff8f5';
+    x.fillRect(0, 0, w, h);
+
+    var self = this;
+
+    function pos(e) {
+      var r = c.getBoundingClientRect();
+      var src = e.touches ? e.touches[0] : e;
+      return { x: src.clientX - r.left, y: src.clientY - r.top };
+    }
+
+    c.onmousedown = function(e) {
+      self.drawing = true;
+      var p = pos(e);
+      x.beginPath();
+      x.moveTo(p.x, p.y);
+    };
+    c.onmousemove = function(e) {
+      if (!self.drawing) return;
+      var p = pos(e);
+      x.lineTo(p.x, p.y);
+      x.stroke();
+      x.beginPath();
+      x.moveTo(p.x, p.y);
+      self.empty = false;
+    };
+    c.onmouseup = c.onmouseleave = function() {
+      self.drawing = false;
+      x.beginPath();
+    };
+
+    c.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      self.drawing = true;
+      var p = pos(e);
+      x.beginPath();
+      x.moveTo(p.x, p.y);
+    }, { passive: false });
+
+    c.addEventListener('touchmove', function(e) {
+      e.preventDefault();
+      if (!self.drawing) return;
+      var p = pos(e);
+      x.lineTo(p.x, p.y);
+      x.stroke();
+      x.beginPath();
+      x.moveTo(p.x, p.y);
+      self.empty = false;
+    }, { passive: false });
+
+    c.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      self.drawing = false;
+      x.beginPath();
+    }, { passive: false });
+  },
+
+  limpar: function() {
+    if (!this.canvas || !this.ctx) return;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = '#fff8f5';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.empty = true;
+  },
+
+  obter: function() {
+    if (!this.canvas || this.empty) return null;
+    return this.canvas.toDataURL('image/png');
+  }
+};
+
+function limparAssinatura() { _sig.limpar(); }
+function obterAssinaturaBase64() { return _sig.obter(); }
+var assinaturaVazia = true; // kept for compatibility
+
+// Init on page load
+window.addEventListener('load', function() {
+  setTimeout(function() { _sig.init(); }, 100);
+});
+
 </script>
 <style>
   :root{
@@ -330,7 +404,7 @@ function gerar() {
   if(!nome) { alert('Por favor, informe seu nome completo.'); return; }
   if(!get('tel')) { alert('Por favor, informe seu telefone.'); return; }
   if(!document.getElementById('aceite').checked) { alert('Por favor, leia e aceite o termo de consentimento.'); return; }
-  if(assinaturaVazia) { alert('Por favor, assine no campo de assinatura eletrônica antes de gerar o PDF.'); return; }
+  if(_sig.empty) { alert('Por favor, assine no campo de assinatura eletrônica antes de gerar o PDF.'); return; }
 
   dadosGlobais = coletarDados();
   const codigo = gerarCodigo(dadosGlobais);
