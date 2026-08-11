@@ -125,6 +125,7 @@
   .kpi-row .delta{font-size:.75rem;}
   .delta.up{color:var(--ok);} .delta.down{color:var(--bad);}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -149,14 +150,14 @@
   <div id="userBadge" style="font-size:.72rem; color:var(--cream-dim); margin-right:6px;"></div>
   <nav class="tabs" id="tabs">
     <button data-view="dashboard" class="active">Painel</button>
+    <button data-view="financeiro">Financeiro</button>
     <button data-view="clientes">Pacientes</button>
     <button data-view="agenda">Agenda</button>
     <button data-view="protocolos">Protocolos</button>
-    <button data-view="produtos">Produtos</button>
     <button data-view="pedidos">Pedidos</button>
     <button data-view="compras">Compras</button>
     <button data-view="fornecedores">Fornecedores</button>
-    <button data-view="financeiro">Financeiro</button>
+    <button data-view="produtos">Produtos</button>
     <button data-view="usuarios">Usuários</button>
     <button data-view="config">Config.</button>
   </nav>
@@ -558,13 +559,12 @@ function viewProntuario(clienteId){
     <button class="btn ghost" onclick="render('clientes')">← Voltar para pacientes</button>
   </div>
   <div class="toolbar">
-    ${tabBtn('dados','Dados do paciente')}
     ${tabBtn('anamnese','Ficha de anamnese')}
     ${tabBtn('evolucao','Evolução & fotos')}
     ${tabBtn('exames','Exames & gráficos')}
   </div>
   <div id="prontuarioContent">
-    ${sub==='dados'? prontuarioDados(cli) : sub==='anamnese'? prontuarioAnamnese(cli) : sub==='evolucao'? prontuarioEvolucao(cli) : prontuarioExames(cli)}
+    ${sub==='anamnese'? prontuarioAnamnese(cli) : sub==='evolucao'? prontuarioEvolucao(cli) : prontuarioExames(cli)}
   </div>`;
 }
 
@@ -619,6 +619,14 @@ function prontuarioAnamnese(cli){
         <button class="btn" onclick="importarFicha()" style="margin-top:18px; padding:9px 18px; white-space:nowrap;">Importar dados</button>
       </div>
       <p style="font-size:.74rem; color:var(--cream-dim); margin-top:8px; font-style:italic;">A paciente recebe o código ao gerar o PDF da ficha. Cole aqui e clique em Importar — todos os campos são preenchidos automaticamente.</p>
+      ${a.fichaImportada ? `
+      <div style="margin-top:12px; padding:10px; background:#f0faf0; border-radius:8px; border:1px solid var(--ok); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div>
+          <span style="color:var(--ok); font-size:.82rem;">✅ Ficha importada em ${fmtDataHora(a.fichaImportadaEm||a.criadoEm)}</span>
+          <div style="font-size:.74rem; color:var(--cream-dim);">Assinatura: <b>${a.fichaImportada.assinatura||'—'}</b></div>
+        </div>
+        <button class="btn small" onclick="gerarPDFFicha('${cli.id}')">📄 Ver PDF da ficha</button>
+      </div>` : ''}
     </div>
     <div class="field"><label>Histórico de saúde geral</label><textarea id="anHistoricoSaude" rows="2" placeholder="Resumo geral de saúde do paciente">${a.historicoSaude||''}</textarea></div>
     <div class="grid cols-2">
@@ -2368,11 +2376,134 @@ async function importarFicha(){
     // termo LGPD
     const termoEl = document.getElementById('anTermo');
     if(termoEl) termoEl.value = 'sim';
-    toast('✅ Ficha importada com sucesso! Revise os campos e salve.');
+
+    // Salva os dados completos da ficha na anamnese para gerar PDF depois
+    const clienteId = window._prontuarioClienteId;
+    if(clienteId){
+      let an = DB.anamneses.find(x=>x.clienteId===clienteId);
+      if(!an){ an={id:uid(),clienteId}; DB.anamneses.push(an); }
+      an.fichaImportada = d;
+      an.fichaImportadaEm = agora();
+      await sSet('anamneses', DB.anamneses);
+    }
+
+    toast('✅ Ficha importada! Salve o prontuário e clique em "Ver PDF da ficha" para visualizar.');
     document.getElementById('codigoImport').value = '';
+    render('prontuario');
   }catch(e){
     toast('Código inválido ou corrompido. Peça a paciente para gerar novamente.');
   }
+}
+
+function gerarPDFFicha(clienteId){
+  const an = DB.anamneses.find(x=>x.clienteId===clienteId);
+  const d = an?.fichaImportada;
+  const cli = DB.clientes.find(x=>x.id===clienteId);
+  if(!d){ toast('Nenhuma ficha importada para este paciente.'); return; }
+
+  // Usa jsPDF igual à ficha original
+  if(!window.jspdf){ toast('Aguarde o carregamento do PDF...'); return; }
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({unit:'mm',format:'a4'});
+  const copper=[181,112,63], cream=[74,47,34], dimmed=[138,101,82], bgCard=[253,245,242];
+  const W=210, M=18;
+  let y=15;
+
+  // Header
+  doc.setFillColor(...bgCard);
+  doc.roundedRect(M,y,W-M*2,28,3,3,'F');
+  doc.setFont('times','bold'); doc.setFontSize(14); doc.setTextColor(...copper);
+  doc.text('RC Estética Regenerativa', W/2, y+10, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...dimmed);
+  doc.text('Ficha de Anamnese — Documento Clínico Confidencial', W/2, y+17, {align:'center'});
+  doc.text('Preenchida em: '+(d.aceiteData||an.fichaImportadaEm||'—'), W/2, y+23, {align:'center'});
+  y+=34;
+
+  const sec=(t)=>{ doc.setFillColor(...copper); doc.rect(M,y,W-M*2,6,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(255,255,255); doc.text(t.toUpperCase(),M+3,y+4); y+=9; doc.setTextColor(...cream); };
+  const campo=(label,val,full)=>{
+    if(!val||val==='—')val='—';
+    const linhas=doc.splitTextToSize(String(val),full?W-M*2-3:(W-M*2)/2-5);
+    const h=Math.max(8,linhas.length*4+4);
+    if(y+h>270){doc.addPage();y=15;}
+    doc.setFillColor(...bgCard); doc.roundedRect(M,y,full?W-M*2:(W-M*2)/2-2,h,1.5,1.5,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...dimmed);
+    doc.text(label.toUpperCase(),M+2.5,y+3.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...cream);
+    doc.text(linhas,M+2.5,y+7);
+    if(!full)return h; y+=h+2;
+  };
+  const duplo=(a,b)=>{
+    const ha=Math.max(8,doc.splitTextToSize(a[1]||'—',(W-M*2)/2-5).length*4+4);
+    const hb=Math.max(8,doc.splitTextToSize(b[1]||'—',(W-M*2)/2-5).length*4+4);
+    const mh=Math.max(ha,hb);
+    if(y+mh>270){doc.addPage();y=15;}
+    [[a,M],[b,M+(W-M*2)/2+2]].forEach(([item,x])=>{
+      const v=item[1]||'—'; const linhas=doc.splitTextToSize(String(v),(W-M*2)/2-5);
+      doc.setFillColor(...bgCard); doc.roundedRect(x,y,(W-M*2)/2-2,mh,1.5,1.5,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...dimmed);
+      doc.text(item[0].toUpperCase(),x+2.5,y+3.5);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...cream);
+      doc.text(linhas,x+2.5,y+7);
+    }); y+=mh+2;
+  };
+
+  sec('Dados Pessoais');
+  campo('Nome completo', d.nome||cli?.nome, true);
+  duplo(['Data de nascimento', d.dataNasc||'—'], ['CPF', d.cpf||'—']);
+  duplo(['Telefone', d.tel||cli?.telefone||'—'], ['E-mail', d.email||cli?.email||'—']);
+  duplo(['Profissão', d.profissao||'—'], ['Como nos conheceu', d.indicacao||'—']);
+  y+=3;
+
+  sec('Saúde Geral');
+  campo('Doenças crônicas', d.doencas, true);
+  campo('Cirurgias recentes', d.cirurgias, true);
+  campo('Medicamentos contínuos', d.medicamentos, true);
+  campo('Alergias', d.alergias, true);
+  campo('Gestante / amamentando', d.gestante, true);
+  y+=3;
+
+  sec('Pele e Cabelo');
+  duplo(['Tipo de pele', d.tipoPele], ['Fototipo Fitzpatrick', d.fototipo]);
+  campo('Queixa principal', d.queixa, true);
+  campo('Doenças de pele', d.doencasPele, true);
+  campo('Protetor solar', d.protetor, true);
+  campo('Ativos na rotina', d.rotinaAtivos, true);
+  campo('Procedimento recente', d.procRecente, true);
+  campo('Histórico de queloide', d.queloide, true);
+  y+=3;
+
+  sec('Estilo de Vida');
+  duplo(['Atividade física', d.atividade], ['Fuma', d.fuma]);
+  campo('Estresse', d.estresse, true);
+  if(d.obs) campo('Observações', d.obs, true);
+  y+=3;
+
+  // Termo
+  if(y+30>270){doc.addPage();y=15;}
+  sec('Consentimento — LGPD');
+  doc.setFillColor(...bgCard); doc.roundedRect(M,y,W-M*2,14,1.5,1.5,'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...dimmed);
+  const termo='Paciente declarou que leu e concordou com o Termo de Consentimento Livre e Esclarecido, incluindo cláusulas sobre procedimentos, riscos, fotografias e LGPD (Lei 13.709/2018).';
+  doc.text(doc.splitTextToSize(termo,W-M*2-6),M+3,y+5);
+  y+=17;
+
+  // Assinatura
+  if(y+30>270){doc.addPage();y=15;}
+  doc.setFillColor(253,240,232); doc.roundedRect(M,y,W-M*2,28,2,2,'F');
+  doc.setDrawColor(...copper); doc.roundedRect(M,y,W-M*2,28,2,2,'S');
+  doc.setFont('times','bolditalic'); doc.setFontSize(20); doc.setTextColor(...copper);
+  doc.text(d.assinatura||d.nome||cli?.nome||'—', M+6, y+14);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...dimmed);
+  doc.text('Assinatura eletrônica — '+(d.aceiteData||'—'), M+6, y+22);
+  doc.text('Validade: MP 2.200-2/2001 e Lei 14.063/2020', M+6, y+27);
+
+  // Rodapé
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...dimmed);
+  doc.text('RC Estética Regenerativa · (11) 98112-6897 · rmr.biomedi@gmail.com · Documento confidencial', W/2, 290, {align:'center'});
+
+  const nomeArq = (d.nome||cli?.nome||'paciente').replace(/\s+/g,'-');
+  doc.save(`Anamnese-RC-${nomeArq}-${todayISO()}.pdf`);
+  toast('✅ PDF gerado e baixado!');
 }
 
 function exportarDados(){
