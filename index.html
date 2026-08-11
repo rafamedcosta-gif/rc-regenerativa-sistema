@@ -760,7 +760,10 @@ function prontuarioEvolucao(cli){
         <div style="border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <b>${fmtData(e.data)}</b>
-            <button class="btn ghost small" onclick="excluirEvolucao('${e.id}')">Excluir</button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn small" onclick="editarEvolucao('${e.id}')">Editar</button>
+              <button class="btn ghost small" onclick="excluirEvolucao('${e.id}')">Excluir</button>
+            </div>
           </div>
           ${e.texto? `<p style="font-size:.85rem;line-height:1.5;margin-bottom:10px;">${e.texto}</p>`:''}
           ${(e.fotos||[]).length||e.fotoAntes? `
@@ -815,8 +818,47 @@ async function salvarEvolucao(clienteId){
   closeModal(); render('prontuario'); toast(`Evolução registrada com ${files.length} foto(s)`);
 }
 async function excluirEvolucao(id){
+  if(!confirm('Excluir este registro de evolução?')) return;
   DB.evolucoes = DB.evolucoes.filter(e=>e.id!==id);
   await sSet('evolucoes', DB.evolucoes); render('prontuario'); toast('Registro removido');
+}
+function editarEvolucao(id){
+  const e = DB.evolucoes.find(x=>x.id===id); if(!e) return;
+  const protOpts = DB.protocolos.sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt-BR'))
+    .map(p=>`<option value="${p.id}" ${p.id===e.protocoloId?'selected':''}>${p.titulo||p.id}</option>`).join('');
+  openModal(`<h3>Editar registro — ${fmtData(e.data)}</h3>
+    <div class="field"><label>Protocolo / Procedimento</label>
+      <select id="mEvProtocolo"><option value="">Geral</option>${protOpts}</select>
+    </div>
+    <div class="field"><label>Data</label><input type="date" id="mEvData" value="${e.data}"></div>
+    <div class="field"><label>Observações clínicas</label>
+      <textarea id="mEvTexto" rows="3">${e.texto||''}</textarea>
+    </div>
+    <div class="field"><label>Adicionar mais fotos</label>
+      <input type="file" accept="image/*" id="mEvFotos" multiple>
+      <p class="note">As fotos existentes são mantidas. Selecione para adicionar novas.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="salvarEdicaoEvolucao('${id}')">Salvar</button>
+    </div>`);
+}
+async function salvarEdicaoEvolucao(id){
+  const e = DB.evolucoes.find(x=>x.id===id); if(!e) return;
+  e.protocoloId = document.getElementById('mEvProtocolo')?.value||'';
+  e.data = document.getElementById('mEvData').value||e.data;
+  e.texto = document.getElementById('mEvTexto').value.trim();
+  const files = Array.from(document.getElementById('mEvFotos')?.files||[]);
+  if(files.length){ toast('Processando fotos...'); }
+  try{
+    for(const f of files){
+      const compressed = await compressImage(f, 600, 0.75);
+      if(!e.fotos) e.fotos=[];
+      e.fotos.push(compressed);
+    }
+  }catch(err){ console.error(err); }
+  await sSet('evolucoes', DB.evolucoes);
+  closeModal(); render('prontuario'); toast('Registro atualizado');
 }
 
 /* ---- Exames & gráficos ---- */
@@ -1256,7 +1298,10 @@ function wireProdutos(){
         <div class="field"><label>Custo total da compra (R$)</label><input type="number" step="0.01" id="mProdCusto" value="0"></div>
         <div class="field"><label>Rendimento (qtd usos por compra)</label><input type="number" id="mProdUnid" value="1"></div>
         <div class="field"><label>Estoque inicial</label><input type="number" id="mProdEstoque" value="0"></div>
-        <div class="field"><label>Estoque mínimo para alerta Kanban</label><input type="number" id="mProdEstoqueMin" value="1"></div>
+        <div class="field"><label>Sessões mínimas para reposição</label>
+          <input type="number" id="mProdEstoqueMin" value="5" min="1">
+          <p class="note">Quando o estoque cobrir menos que este número de sessões, aparece no Kanban.</p>
+        </div>
       </div>
       <div id="camposEquipamento" style="display:none">
         <div class="field"><label>Valor de aquisição (R$)</label><input type="number" step="0.01" id="mProdCustoEq" value="0"></div>
@@ -1286,7 +1331,7 @@ function filtrarProdutos(q){
 }
 function viewProdutosHTML(equipamentos, insumos){
   return `<div class="card" style="margin-bottom:16px;"><h3>Consumíveis</h3><p class="sub">Itens que se esgotam a cada uso.</p>
-    ${insumos.length?`<table><thead><tr><th>Código</th><th>Nome</th><th>Custo/uso</th><th>Estoque</th><th>Disponível</th><th>Cobertura</th><th>Cadastro</th><th></th></tr></thead><tbody>
+    ${insumos.length?`<table><thead><tr><th>Código</th><th>Nome</th><th>Custo/uso</th><th>Estoque</th><th>Disponível</th><th>Cobertura</th><th>Mín. sessões</th><th>Cadastro</th><th></th></tr></thead><tbody>
     ${insumos.map(p=>`<tr><td><b>${p.codigo||'—'}</b></td><td>${p.nome}</td><td>${p.unidadeMedida||'un'}</td><td>${brl(p.custoPorUso)}</td><td>${p.estoque}</td><td>${p.reservado||0}</td><td><span class="tag ${disponivel(p)<=p.estoqueMin?'bad':'ok'}">${disponivel(p)}</span></td><td>${p.estoqueMin}</td><td><span class="sub">${fmtDataHora(p.criadoEm)}</span></td><td style="display:flex;gap:4px;"><button class="btn small" onclick="editarProduto('${p.id}')">Editar</button><button class="btn ghost small" onclick="excluirProduto('${p.id}')">Excluir</button></td></tr>`).join('')}
     </tbody></table>`:'<div class="empty" style="padding:16px 0;">Nenhum consumível encontrado.</div>'}
   </div>
@@ -1340,7 +1385,10 @@ function editarProduto(id){
     <div class="field"><label>Custo total da compra (R$)</label><input type="number" step="0.01" id="mProdCusto" value="${p.custoTotal}"></div>
     <div class="field"><label>Rendimento (qtd usos)</label><input type="number" id="mProdUnid" value="${p.unidades}"></div>
     <div class="field"><label>Estoque atual</label><input type="number" id="mProdEstoque" value="${p.estoque}"></div>
-    <div class="field"><label>Estoque mínimo (alerta Kanban)</label><input type="number" id="mProdEstoqueMin" value="${p.estoqueMin}"></div>
+    <div class="field"><label>Sessões mínimas para reposição</label>
+      <input type="number" id="mProdEstoqueMin" value="${p.estoqueMin||5}" min="1">
+      <p class="note">Alerta Kanban quando estoque cobrir menos que este número de sessões.</p>
+    </div>
     <div class="field"><label>Observações</label><input id="mProdObs" value="${p.obs||''}"></div>
     `}
     <div class="field"><label>Fornecedor</label>
@@ -1805,11 +1853,10 @@ function coberturaInsumo(produto){
     return { sessoes: usosDisp, cor: 'ok', label: `${usosDisp} usos disponíveis (não vinculado a protocolo)` };
   }
   const sessoes = Math.floor(usosDisp / usoPorSessao);
-  const meta = DB.config.metaAtendimentos || 20;
-  const perc = sessoes / meta;
+  const minSessoes = produto.estoqueMin || 5;
   let cor;
-  if(perc >= 0.5) cor='ok';
-  else if(perc >= 0.25) cor='warn';
+  if(sessoes >= minSessoes * 2) cor='ok';
+  else if(sessoes >= minSessoes) cor='warn';
   else cor='bad';
   const unidadesFisicas = produto.estoque - (produto.reservado||0);
   return {
@@ -1818,13 +1865,7 @@ function coberturaInsumo(produto){
   };
 }
 function minutoSugerido(produto){
-  const meta = DB.config.metaAtendimentos || 20;
-  let usoPorSessao = 0;
-  DB.protocolos.forEach(pop=>{
-    const item = (pop.itens||[]).find(it=>it.produtoId===produto.id);
-    if(item && item.quantidade > usoPorSessao) usoPorSessao = item.quantidade;
-  });
-  return Math.ceil(meta * 0.25 * usoPorSessao) || produto.estoqueMin || 1;
+  return produto.estoqueMin || 5;
 }
 
 
@@ -1865,13 +1906,13 @@ function viewCompras(){
   <div class="grid cols-2" style="margin-bottom:16px;">
     <div class="card" style="border-left:4px solid var(--bad);">
       <h3 style="color:var(--bad);">🔴 Crítico — comprar agora</h3>
-      <p class="sub" style="margin-bottom:8px;">Estoque cobre menos de 25% da meta mensal</p>
+      <p class="sub" style="margin-bottom:8px;">Estoque abaixo do mínimo de sessões definido</p>
       ${criticos.length? criticos.map(p=>cardInsumo(p,'bad','comprar')).join('')
         : '<div class="empty" style="padding:12px 0;">Nenhum item em estado crítico. ✅</div>'}
     </div>
     <div class="card" style="border-left:4px solid var(--warn);">
       <h3 style="color:var(--warn);">⚠️ Alerta — planejar compra</h3>
-      <p class="sub" style="margin-bottom:8px;">Estoque cobre entre 25% e 50% da meta mensal</p>
+      <p class="sub" style="margin-bottom:8px;">Estoque entre o mínimo e o dobro do mínimo</p>
       ${alerta.length? alerta.map(p=>cardInsumo(p,'warn','comprar')).join('')
         : '<div class="empty" style="padding:12px 0;">Nenhum item em alerta.</div>'}
     </div>
@@ -1885,7 +1926,7 @@ function viewCompras(){
     </div>
     <div class="card" style="border-left:4px solid var(--ok);">
       <h3 style="color:var(--ok);">✅ Estoque OK</h3>
-      <p class="sub" style="margin-bottom:8px;">Cobre mais de 50% da meta mensal</p>
+      <p class="sub" style="margin-bottom:8px;">Estoque acima do dobro do mínimo definido</p>
       ${ok.length? ok.map(p=>{
         const cob=coberturaInsumo(p);
         return `<div style="padding:6px 0; border-bottom:1px solid var(--line); font-size:.85rem;">
