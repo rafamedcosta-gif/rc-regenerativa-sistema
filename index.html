@@ -2828,11 +2828,10 @@ async function seedAdminUser(){
   let usuarios = await sGet('usuarios') || [];
   if(usuarios.length === 0){
     // Cria admin automático na primeira inicialização
-    const adminHash = await hashText('Rafa280107*');
-    const admin = { usuario:'rafael', nome:'Rafael Costa', hash:adminHash, role:'admin', modulos:[] };
+    const admin = { usuario:'rafael', nome:'Rafael Costa', senha:'Rafa280107*', role:'admin', modulos:[] };
     usuarios.push(admin);
     await sSet('usuarios', usuarios);
-    console.log('✅ Usuário administrador criado automaticamente');
+    console.log('✅ Usuário administrador criado automaticamente: Rafael Costa');
     return admin;
   }
   return usuarios[0];
@@ -2865,7 +2864,7 @@ async function setupLock(){
       if(!nome || !user){ lockError.textContent='Preencha nome e usuário.'; lockError.style.display='block'; return; }
       if(!p1 || p1.length<4){ lockError.textContent='A senha precisa ter pelo menos 4 caracteres.'; lockError.style.display='block'; return; }
       if(p1!==p2){ lockError.textContent='As senhas não coincidem.'; lockError.style.display='block'; return; }
-      const admin = { usuario:user, nome, hash: await hashText(p1), role:'admin', modulos:[] };
+      const admin = { usuario:user, nome, senha:p1, role:'admin', modulos:[] };
       usuarios.push(admin);
       await sSet('usuarios', usuarios);
       unlockSession(admin);
@@ -2883,8 +2882,15 @@ async function setupLock(){
     document.getElementById('lockSubmit').onclick = async ()=>{
       const user = document.getElementById('lockUser').value.trim().toLowerCase();
       const p1 = document.getElementById('lockPass').value;
-      const conta = usuarios.find(u=>u.usuario.toLowerCase()===user);
-      if(conta && conta.hash && await hashText(p1)===conta.hash){ unlockSession(conta); renderTabsForUser(); }
+      // Aceita "rafael", "rafael costa" ou busca por nome/usuário
+      const conta = usuarios.find(u=>{
+        const u_lower = u.usuario ? u.usuario.toLowerCase() : '';
+        const n_lower = u.nome ? u.nome.toLowerCase() : '';
+        return u_lower === user || n_lower === user || n_lower.replace(/\s+/g,' ') === user.replace(/\s+/g,' ');
+      });
+      // Validação: compara senha diretamente (sem hash) ou com hash se existir
+      const senhaValida = conta && (conta.senha === p1 || (conta.hash && await hashText(p1) === conta.hash));
+      if(senhaValida){ unlockSession(conta); renderTabsForUser(); }
       else { lockError.textContent='Usuário ou senha incorretos.'; lockError.style.display='block'; }
     };
     lockReset.innerHTML = '';
