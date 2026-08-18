@@ -527,6 +527,8 @@ function filtrarPacientes(q){
 function wireClientes(){
   document.getElementById('btnNovoCliente')?.addEventListener('click', ()=>{
     openModal(`<h3>Novo paciente</h3>
+      <div class="field"><label>Como cadastrar?</label><div style="display:flex; gap:8px; flex-wrap:wrap;"><button type="button" class="btn small" id="modoManualBtn" onclick="setModoCadastro('manual')">✍️ Manual</button><button type="button" class="btn ghost small" id="modoCodigoBtn" onclick="setModoCadastro('codigo')">📋 Código da ficha</button></div></div>
+      <div id="cadCodigoWrap" style="display:none;"><div class="field"><label>Código da ficha de anamnese</label><textarea id="mCliCodigo" rows="3" placeholder="Cole aqui o código ANA-... enviado pela paciente" style="font-family:monospace;"></textarea></div><button type="button" class="btn ghost small" onclick="lerCodigoCadastro()">Ler código e preencher</button><div id="cadCodigoMsg" style="font-size:.75rem; margin:6px 0;"></div></div>
       <div class="field"><label>Nome completo</label><input id="mCliNome"></div>
       <div class="field"><label>Telefone / WhatsApp</label><input id="mCliTel"></div>
       <div class="field"><label>E-mail</label><input id="mCliEmail"></div>
@@ -534,14 +536,68 @@ function wireClientes(){
       <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarCliente()">Salvar</button></div>`);
   });
 }
+let _cadFichaImportada = null;
+function decodeFichaCodigo(cod){
+  const partes = (cod||'').trim().split('|');
+  if(partes.length < 2) throw new Error('Codigo invalido');
+  const json = decodeURIComponent(escape(atob(partes[1])));
+  return JSON.parse(json);
+}
+function mapFichaToAnamnese(d, clienteId){
+  const mapGest = {'Não':'nao','Gestante':'sim','Amamentando':'sim','Possível':'talvez'};
+  return { id: uid(), clienteId,
+    profissao: d.profissao||'', historicoSaude: d.obs||'',
+    doencasCronicas: d.doencas||'', cirurgias: d.cirurgias||'',
+    medicamentos: d.medicamentos||'', alergias: d.alergias||'',
+    queixa: d.queixa||'', doencas: d.doencasPele||'',
+    gestante: mapGest[d.gestante]||'nao', tipoPele: d.tipoPele||'',
+    fototipo: (d.fototipo||'').split('—')[0].trim(), termo: 'sim',
+    fichaImportada: d, fichaImportadaEm: agora(), atualizadoEm: todayISO() };
+}
+function setModoCadastro(modo){
+  const wrap=document.getElementById('cadCodigoWrap');
+  const mBtn=document.getElementById('modoManualBtn');
+  const cBtn=document.getElementById('modoCodigoBtn');
+  if(!wrap) return;
+  if(modo==='codigo'){ wrap.style.display='block'; cBtn.classList.remove('ghost'); mBtn.classList.add('ghost'); }
+  else { wrap.style.display='none'; mBtn.classList.remove('ghost'); cBtn.classList.add('ghost'); _cadFichaImportada=null; }
+}
+function lerCodigoCadastro(){
+  const msg=document.getElementById('cadCodigoMsg');
+  try{
+    const d=decodeFichaCodigo(document.getElementById('mCliCodigo').value);
+    _cadFichaImportada=d;
+    if(d.nome) document.getElementById('mCliNome').value=d.nome;
+    if(d.tel) document.getElementById('mCliTel').value=d.tel;
+    if(d.email) document.getElementById('mCliEmail').value=d.email;
+    const r=[];
+    if(d.dataNasc) r.push('Nasc.: '+d.dataNasc);
+    if(d.cpf) r.push('CPF: '+d.cpf);
+    if(d.alergias) r.push('Alergias: '+d.alergias);
+    if(r.length) document.getElementById('mCliObs').value=r.join(' | ');
+    msg.style.color='var(--ok)';
+    msg.textContent='✅ Código lido! Confira os dados e clique em Salvar — a ficha de anamnese será preenchida sozinha.';
+  }catch(e){
+    _cadFichaImportada=null;
+    msg.style.color='var(--bad)';
+    msg.textContent='❌ Código inválido. Peça à paciente para gerar novamente.';
+  }
+}
 async function salvarCliente(){
   const nome = document.getElementById('mCliNome').value.trim();
   if(!nome){ toast('Informe o nome do paciente'); return; }
-  DB.clientes.push({ id:uid(), nome, telefone:document.getElementById('mCliTel').value.trim(),
+  const _novoId = uid();
+  const _tinhaFicha = !!_cadFichaImportada;
+  DB.clientes.push({ id:_novoId, nome, telefone:document.getElementById('mCliTel').value.trim(),
     email:document.getElementById('mCliEmail').value.trim(), observacoes:document.getElementById('mCliObs').value.trim(),
     criadoEm: todayISO() });
+  if(_cadFichaImportada){
+    DB.anamneses.push(mapFichaToAnamnese(_cadFichaImportada, _novoId));
+    await sSet('anamneses', DB.anamneses);
+    _cadFichaImportada = null;
+  }
   await sSet('clientes', DB.clientes);
-  closeModal(); render('clientes'); toast('Paciente cadastrado');
+  closeModal(); render('clientes'); toast(_tinhaFicha ? 'Paciente e ficha de anamnese cadastrados' : 'Paciente cadastrado');
 }
 async function excluirCliente(id){
   DB.clientes = DB.clientes.filter(c=>c.id!==id);
