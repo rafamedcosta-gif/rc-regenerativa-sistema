@@ -2823,6 +2823,21 @@ function podeVer(modulo){
 /* ============ ACESSO POR USUÁRIO E SENHA (com permissões por módulo) ============
    1º acesso: cria o usuário administrador. Login: cada pessoa usa seu próprio usuário/senha.
    O admin cadastra os demais usuários e escolhe quais módulos cada um pode ver. */
+async function seedAdminUser(){
+  // Verifica se já existe admin de primeira vez
+  let usuarios = await sGet('usuarios') || [];
+  if(usuarios.length === 0){
+    // Cria admin automático na primeira inicialização
+    const adminHash = await hashText('Rafa280107*');
+    const admin = { usuario:'rafael', nome:'Rafael Costa', hash:adminHash, role:'admin', modulos:[] };
+    usuarios.push(admin);
+    await sSet('usuarios', usuarios);
+    console.log('✅ Usuário administrador criado automaticamente');
+    return admin;
+  }
+  return usuarios[0];
+}
+
 async function setupLock(){
   let usuarios = await sGet('usuarios') || [];
   const lockTitle = document.getElementById('lockTitle');
@@ -2896,6 +2911,7 @@ document.addEventListener('keydown', e=>{
 
 /* ============ INIT ============ */
 (async function init(){
+  await seedAdminUser(); // Cria admin automaticamente na primeira vez
   await setupLock();
   const userBadge = document.getElementById('userBadge');
   if(userBadge) userBadge.textContent = '';
