@@ -1,0 +1,25 @@
+{
+  "name": "rc-regenerativa-sistema",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "node scripts/write-config.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafamedcosta-gif/rc-regenerativa-sistema.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rafamedcosta-gif/rc-regenerativa-sistema/issues"
+  },
+  "homepage": "https://github.com/rafamedcosta-gif/rc-regenerativa-sistema#readme",
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}

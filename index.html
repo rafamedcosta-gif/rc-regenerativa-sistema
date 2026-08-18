@@ -125,6 +125,8 @@
   .kpi-row .delta{font-size:.75rem;}
   .delta.up{color:var(--ok);} .delta.down{color:var(--bad);}
 </style>
+<script src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -171,21 +173,146 @@
 
 <script>
 /* ============ STORAGE HELPERS ============ */
-const SHARED = true; // dados do negócio compartilhados entre quem acessa o sistema
+const SHARED = true;
 const LS_PREFIX = 'rc_estetica_';
+const RC_CONFIG = window.RC_CONFIG || {};
+const SUPABASE_URL = RC_CONFIG.SUPABASE_URL || window.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = RC_CONFIG.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || '';
+window.SUPABASE_URL = SUPABASE_URL;
+window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const STORAGE_TABLES = {
+  clientes: 'pacientes',
+  produtos: 'produtos',
+  procedimentos: 'procedimentos',
+  agendamentos: 'agendamentos',
+  financeiro: 'financeiro',
+  compras: 'compras',
+  config: 'configuracoes',
+  anamneses: 'anamneses',
+  evolucoes: 'evolucoes',
+  exames: 'exames',
+  protocolos: 'protocolos',
+  fornecedores: 'fornecedores',
+  usuarios: 'usuarios',
+  solicitacoes: 'solicitacoes',
+  pacotes: 'pacotes'
+};
+
 function hasClaudeStorage(){ return (typeof window!=='undefined') && window.storage && typeof window.storage.get==='function'; }
+function toSnakeCase(str){ return String(str).replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/-/g, '_').toLowerCase(); }
+function toCamelCase(str){ return String(str).replace(/_([a-z])/g, (_, ch) => ch.toUpperCase()); }
+
+function normalizeSupabaseRow(row, tableName){
+  if(!row || typeof row !== 'object') return row;
+  const normalized = {};
+  Object.entries(row).forEach(([key, value]) => {
+    const normalizedKey = toCamelCase(key);
+    normalized[normalizedKey] = value;
+  });
+  if(tableName === 'agendamentos') {
+    normalized.clienteId = row.paciente_id ?? normalized.clienteId ?? null;
+    normalized.procedimentoId = row.procedimento_id ?? normalized.procedimentoId ?? null;
+    normalized.protocoloId = row.protocolo_id ?? normalized.protocoloId ?? null;
+    normalized.concluidoEm = row.concluido_em ?? normalized.concluidoEm ?? null;
+    normalized.criadoEm = row.criado_em ?? normalized.criadoEm ?? null;
+    normalized.atualizadoEm = row.atualizado_em ?? normalized.atualizadoEm ?? null;
+  }
+  if(tableName === 'configuracoes') {
+    return { [row.chave]: row.valor };
+  }
+  return normalized;
+}
+
+function rowToTableRecord(tableName, record){
+  if(!record || typeof record !== 'object') return record;
+  const clone = { ...record };
+  const aliases = {
+    clienteId: 'paciente_id',
+    pacienteId: 'paciente_id',
+    protocoloId: 'protocolo_id',
+    procedimentoId: 'procedimento_id',
+    fornecedorId: 'fornecedor_id',
+    criadoEm: 'criado_em',
+    atualizadoEm: 'atualizado_em',
+    dataNascimento: 'data_nascimento',
+    observacoes: 'observacoes',
+    retornoWhatsapp: 'retorno_whatsapp',
+    fichaImportadaEm: 'ficha_importada_em',
+    dataAbertura: 'data_abertura',
+    concluidoEm: 'concluido_em',
+    nivelStress: 'nivel_stress',
+    doencasCronicas: 'doencas_cronicas',
+    doencasPele: 'doencas_pele',
+    historicoSaude: 'historico_saude',
+    nivelStresse: 'nivel_stress'
+  };
+  const out = {};
+  Object.entries(clone).forEach(([key, value]) => {
+    const mappedKey = aliases[key] || toSnakeCase(key);
+    out[mappedKey] = value;
+  });
+  if(tableName === 'agendamentos') {
+    if(out.cliente_id === undefined && out.paciente_id === undefined && record.clienteId !== undefined) out.paciente_id = record.clienteId;
+    delete out.cliente_id;
+  }
+  if(tableName === 'financeiro' && record.clienteId !== undefined && out.paciente_id === undefined) {
+    out.paciente_id = record.clienteId;
+  }
+  if(tableName === 'configuracoes') {
+    return { chave: Object.keys(record)[0], valor: Object.values(record)[0] };
+  }
+  return out;
+}
+
 async function sGet(key){
+  if(supabase && STORAGE_TABLES[key]){
+    try{
+      const tableName = STORAGE_TABLES[key];
+      if(key === 'config'){
+        const { data, error } = await supabase.from(tableName).select('*');
+        if(error) throw error;
+        const result = {};
+        (data || []).forEach(row => { result[row.chave] = row.valor; });
+        return result;
+      }
+      const { data, error } = await supabase.from(tableName).select('*');
+      if(error) throw error;
+      return (data || []).map(row => normalizeSupabaseRow(row, tableName));
+    }catch(e){
+      console.warn('Supabase read fallback', key, e);
+    }
+  }
   if(hasClaudeStorage()){
     try{ const r = await window.storage.get(key, SHARED); return r ? JSON.parse(r.value) : null; }catch(e){ /* cai para localStorage */ }
   }
   try{ const v = localStorage.getItem(LS_PREFIX+key); return v ? JSON.parse(v) : null; }catch(e){ return null; }
 }
+
 async function sSet(key, value){
+  if(supabase && STORAGE_TABLES[key]){
+    try{
+      const tableName = STORAGE_TABLES[key];
+      if(key === 'config'){
+        const rows = Object.entries(value || {}).map(([chave, valor]) => ({ chave, valor }));
+        const { error } = await supabase.from(tableName).upsert(rows, { onConflict: 'chave' });
+        if(error) throw error;
+        return;
+      }
+      const rows = Array.isArray(value) ? value.map(item => rowToTableRecord(tableName, item)) : [rowToTableRecord(tableName, value)];
+      const { error } = await supabase.from(tableName).upsert(rows, { onConflict: 'id' });
+      if(error) throw error;
+      return;
+    }catch(e){
+      console.warn('Supabase write fallback', key, e);
+    }
+  }
   if(hasClaudeStorage()){
     try{ await window.storage.set(key, JSON.stringify(value), SHARED); return; }catch(e){ /* cai para localStorage */ }
   }
   try{ localStorage.setItem(LS_PREFIX+key, JSON.stringify(value)); }catch(e){ console.error('storage set fail', key, e); }
 }
+
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function agora(){ return new Date().toISOString(); }
 function fmtDataHora(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
