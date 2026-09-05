@@ -496,7 +496,10 @@ function viewClientes(){
   return `
   <div class="section-title">
     <div><h2>Pacientes</h2><p>${DB.clientes.length} paciente(s) cadastrado(s)</p></div>
-    <button class="btn" id="btnNovoCliente">+ Novo paciente</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn ghost" id="btnImportarFichaCliente">📋 Importar da ficha</button>
+      <button class="btn" id="btnNovoCliente">+ Cadastro manual</button>
+    </div>
   </div>
   <div class="toolbar" style="margin-bottom:12px;">
     <input id="searchPaciente" placeholder="Buscar paciente por nome ou telefone..." oninput="filtrarPacientes(this.value)" style="max-width:360px;">
@@ -521,13 +524,54 @@ function filtrarPacientes(q){
 }
 function wireClientes(){
   document.getElementById('btnNovoCliente')?.addEventListener('click', ()=>{
-    openModal(`<h3>Novo paciente</h3>
+    openModal(`<h3>Novo paciente — cadastro manual</h3>
+      <p class="note" style="margin-bottom:10px;">Use esta opção só quando a paciente ainda não preencheu a ficha de anamnese. Se ela já enviou o código, use "Importar da ficha" — evita digitar tudo de novo.</p>
       <div class="field"><label>Nome completo</label><input id="mCliNome"></div>
       <div class="field"><label>Telefone / WhatsApp</label><input id="mCliTel"></div>
       <div class="field"><label>E-mail</label><input id="mCliEmail"></div>
       <div class="field"><label>Observações (pele, alergias, histórico)</label><textarea id="mCliObs" rows="3"></textarea></div>
       <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarCliente()">Salvar</button></div>`);
   });
+  document.getElementById('btnImportarFichaCliente')?.addEventListener('click', ()=>{
+    openModal(`<h3>📋 Importar da ficha de anamnese</h3>
+      <p class="note" style="margin-bottom:10px;">Cole o código que a paciente enviou. O sistema cria o cadastro e preenche a ficha de anamnese automaticamente — sem precisar digitar nada.</p>
+      <div class="field"><label>Código da ficha</label>
+        <input id="codigoImportNovoCliente" placeholder="ANA-2026-XXXX|..." style="font-family:monospace;font-size:.82rem;">
+      </div>
+      <div id="previewImportCliente" style="display:none;margin-top:10px;padding:12px;background:var(--bg-elev);border-radius:8px;font-size:.85rem;"></div>
+      <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="criarClienteDaFicha()">Criar paciente</button></div>`);
+  });
+}
+async function criarClienteDaFicha(){
+  const cod = document.getElementById('codigoImportNovoCliente')?.value.trim();
+  if(!cod){ toast('Cole o código da ficha'); return; }
+  try{
+    const partes = cod.split('|');
+    if(partes.length < 2) throw new Error('inválido');
+    const json = decodeURIComponent(escape(atob(partes[1])));
+    const d = JSON.parse(json);
+    if(!d.nome){ toast('Código não contém nome do paciente'); return; }
+    // Verifica se já existe paciente com esse nome+telefone
+    const existente = DB.clientes.find(c=>c.nome===d.nome && c.telefone===d.tel);
+    if(existente){ toast('Este paciente já está cadastrado. Abra o prontuário dele para importar a ficha.'); return; }
+    // Cria o cliente
+    const novoCliente = {
+      id: uid(), nome: d.nome, telefone: d.tel||'', email: d.email||'',
+      dataNascimento: d.dataNasc||'', cpf: d.cpf||'', profissao: d.profissao||'',
+      observacoes: '', criadoEm: todayISO()
+    };
+    DB.clientes.push(novoCliente);
+    await sSet('clientes', DB.clientes);
+    // Cria a anamnese já com os dados importados
+    const an = { id:uid(), clienteId:novoCliente.id, fichaImportada:d, fichaImportadaEm:agora() };
+    DB.anamneses.push(an);
+    await sSet('anamneses', DB.anamneses);
+    closeModal();
+    render('clientes');
+    toast(`✅ Paciente ${d.nome} criado com ficha já importada!`);
+  }catch(e){
+    toast('Código inválido ou corrompido.');
+  }
 }
 async function salvarCliente(){
   const nome = document.getElementById('mCliNome').value.trim();
@@ -627,6 +671,19 @@ function prontuarioAnamnese(cli){
         </div>
         <button class="btn small" onclick="gerarPDFFicha('${cli.id}')">📄 Ver PDF da ficha</button>
       </div>` : ''}
+      <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);">
+        <label style="font-size:.75rem; text-transform:uppercase; letter-spacing:.4px; color:var(--copper-light); font-weight:700; display:block; margin-bottom:6px;">📎 Anexar PDF assinado (opcional)</label>
+        <p style="font-size:.74rem; color:var(--cream-dim); margin-bottom:8px;">Se a paciente te enviou o PDF em vez do código, anexe aqui para guardar no prontuário.</p>
+        <input type="file" accept="application/pdf" id="anexoPdfFicha" onchange="anexarPdfFicha('${cli.id}', this)">
+        ${a.pdfAnexado ? `
+        <div style="margin-top:10px; padding:8px 10px; background:#f0faf0; border-radius:8px; border:1px solid var(--ok); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <span style="color:var(--ok); font-size:.8rem;">✅ PDF anexado em ${fmtDataHora(a.pdfAnexadoEm)}</span>
+          <div style="display:flex;gap:6px;">
+            <button class="btn small" onclick="abrirPdfAnexado('${cli.id}')">👁️ Ver PDF</button>
+            <button class="btn ghost small" onclick="removerPdfAnexado('${cli.id}')">Remover</button>
+          </div>
+        </div>` : ''}
+      </div>
     </div>
     <div class="field"><label>Histórico de saúde geral</label><textarea id="anHistoricoSaude" rows="2" placeholder="Resumo geral de saúde do paciente">${a.historicoSaude||''}</textarea></div>
     <div class="grid cols-2">
@@ -2401,6 +2458,41 @@ async function removerUsuario(usuario){
   await sSet('usuarios', DB.usuarios);
   render('usuarios'); toast('Usuário removido');
 }
+async function anexarPdfFicha(clienteId, input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.type !== 'application/pdf'){ toast('Selecione um arquivo PDF'); return; }
+  if(file.size > 4*1024*1024){ toast('PDF muito grande (máx. 4MB). Comprima o arquivo antes de anexar.'); return; }
+  toast('Salvando PDF...');
+  try{
+    const reader = new FileReader();
+    reader.onload = async function(e){
+      let an = DB.anamneses.find(x=>x.clienteId===clienteId);
+      if(!an){ an={id:uid(),clienteId}; DB.anamneses.push(an); }
+      an.pdfAnexado = e.target.result;
+      an.pdfAnexadoEm = agora();
+      await sSet('anamneses', DB.anamneses);
+      render('prontuario');
+      toast('✅ PDF anexado ao prontuário!');
+    };
+    reader.readAsDataURL(file);
+  }catch(err){
+    toast('Erro ao processar o PDF');
+  }
+}
+function abrirPdfAnexado(clienteId){
+  const an = DB.anamneses.find(x=>x.clienteId===clienteId);
+  if(!an?.pdfAnexado){ toast('Nenhum PDF anexado'); return; }
+  const win = window.open();
+  win.document.write(`<iframe src="${an.pdfAnexado}" style="width:100%;height:100vh;border:none;"></iframe>`);
+}
+async function removerPdfAnexado(clienteId){
+  if(!confirm('Remover o PDF anexado?')) return;
+  const an = DB.anamneses.find(x=>x.clienteId===clienteId);
+  if(an){ delete an.pdfAnexado; delete an.pdfAnexadoEm; await sSet('anamneses', DB.anamneses); }
+  render('prontuario'); toast('PDF removido');
+}
+
 async function importarFicha(){
   const cod = document.getElementById('codigoImport')?.value.trim();
   if(!cod){ toast('Cole o código da ficha no campo acima'); return; }
