@@ -2926,11 +2926,15 @@ document.addEventListener('keydown', e=>{
     if(supa){ try{ await supa.auth.signOut(); }catch(e){} }
     location.reload();
   });
-  renderTabsForUser();
-  document.getElementById('main').innerHTML = `<div class="empty"><b>Carregando dados...</b></div>`;
-  await loadAll();
-  render('dashboard');
+  // Só carrega os dados automaticamente aqui se o login já aconteceu
+  // dentro do próprio setupLock() (sessão já ativa). Caso contrário, o
+  // próprio botão de login chama recarregarTudoPosLogin() ao autenticar —
+  // evita ler/gravar dados antes do login terminar (condição de corrida).
+  if(USUARIO_LOGADO){
+    renderTabsForUser();
+  }
 })();
+
 </script>
 </body>
 </html>
