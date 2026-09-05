@@ -126,6 +126,7 @@
   .delta.up{color:var(--ok);} .delta.down{color:var(--bad);}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -170,17 +171,43 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ============ SUPABASE (banco compartilhado) ============ */
+const SUPABASE_URL = 'https://rsnwdedbwukkucoyhfkt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_1-5STkG49tYt7y9GX7ixxw_F0k_pSDH';
+let supa = null;
+try{
+  if(window.supabase && window.supabase.createClient){
+    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+}catch(e){ console.error('Supabase init falhou, usando modo local', e); supa = null; }
+async function temSessaoSupabase(){
+  if(!supa) return false;
+  try{ const { data:{ session } } = await supa.auth.getSession(); return !!session; }catch(e){ return false; }
+}
+
 /* ============ STORAGE HELPERS ============ */
 const SHARED = true; // dados do negócio compartilhados entre quem acessa o sistema
 const LS_PREFIX = 'rc_estetica_';
 function hasClaudeStorage(){ return (typeof window!=='undefined') && window.storage && typeof window.storage.get==='function'; }
 async function sGet(key){
+  if(await temSessaoSupabase()){
+    try{
+      const { data, error } = await supa.from('app_data').select('value').eq('key', key).maybeSingle();
+      if(!error) return data ? data.value : null;
+    }catch(e){ /* cai para localStorage */ }
+  }
   if(hasClaudeStorage()){
     try{ const r = await window.storage.get(key, SHARED); return r ? JSON.parse(r.value) : null; }catch(e){ /* cai para localStorage */ }
   }
   try{ const v = localStorage.getItem(LS_PREFIX+key); return v ? JSON.parse(v) : null; }catch(e){ return null; }
 }
 async function sSet(key, value){
+  if(await temSessaoSupabase()){
+    try{
+      const { error } = await supa.from('app_data').upsert({ key, value, updated_at: new Date().toISOString() });
+      if(!error) return;
+    }catch(e){ /* cai para localStorage */ }
+  }
   if(hasClaudeStorage()){
     try{ await window.storage.set(key, JSON.stringify(value), SHARED); return; }catch(e){ /* cai para localStorage */ }
   }
@@ -2785,8 +2812,24 @@ function podeVer(modulo){
 /* ============ ACESSO POR USUÁRIO E SENHA (com permissões por módulo) ============
    1º acesso: cria o usuário administrador. Login: cada pessoa usa seu próprio usuário/senha.
    O admin cadastra os demais usuários e escolhe quais módulos cada um pode ver. */
-async function setupLock(){
+async function garantirUsuarioAdminLocal(email){
+  // garante que exista um registro local correspondente ao login do Supabase,
+  // para o restante do sistema (permissões por módulo) continuar funcionando igual
   let usuarios = await sGet('usuarios') || [];
+  if(!usuarios.find(u=>(u.usuario||'').toLowerCase()===email.toLowerCase())){
+    usuarios.push({ usuario: email, nome: email, hash:'', role:'admin', modulos:[] });
+    await sSet('usuarios', usuarios);
+  }
+  return usuarios.find(u=>(u.usuario||'').toLowerCase()===email.toLowerCase());
+}
+
+async function recarregarTudoPosLogin(){
+  document.getElementById('main').innerHTML = `<div class="empty"><b>Carregando dados...</b></div>`;
+  await loadAll();
+  render('dashboard');
+}
+
+async function setupLock(){
   const lockTitle = document.getElementById('lockTitle');
   const lockSubtitle = document.getElementById('lockSubtitle');
   const lockFields = document.getElementById('lockFields');
@@ -2794,50 +2837,68 @@ async function setupLock(){
   const lockReset = document.getElementById('lockReset');
   lockReset.innerHTML = '';
 
-  if(usuarios.length===0){
-    // primeiro acesso — cria o usuário ADMINISTRADOR
-    lockTitle.textContent = 'Criar administrador';
-    lockSubtitle.textContent = 'Primeiro acesso: crie o usuário administrador (você). Depois, você cadastra os demais.';
-    lockFields.innerHTML = `
-      <div class="field"><input type="text" id="lockNome" placeholder="Seu nome (ex.: Rafael Medeiros)"></div>
-      <div class="field"><input type="text" id="lockUser" placeholder="Usuário de login (ex.: rafael)"></div>
-      <div class="field"><input type="password" id="lockPass" placeholder="Crie uma senha"></div>
-      <div class="field"><input type="password" id="lockPass2" placeholder="Confirme a senha"></div>`;
-    document.getElementById('lockSubmit').textContent = 'Criar e entrar';
-    document.getElementById('lockSubmit').onclick = async ()=>{
-      const nome = document.getElementById('lockNome').value.trim();
-      const user = document.getElementById('lockUser').value.trim();
-      const p1 = document.getElementById('lockPass').value;
-      const p2 = document.getElementById('lockPass2').value;
-      if(!nome || !user){ lockError.textContent='Preencha nome e usuário.'; lockError.style.display='block'; return; }
-      if(!p1 || p1.length<4){ lockError.textContent='A senha precisa ter pelo menos 4 caracteres.'; lockError.style.display='block'; return; }
-      if(p1!==p2){ lockError.textContent='As senhas não coincidem.'; lockError.style.display='block'; return; }
-      const admin = { usuario:user, nome, hash: await hashText(p1), role:'admin', modulos:[] };
-      usuarios.push(admin);
-      await sSet('usuarios', usuarios);
-      unlockSession(admin);
-      renderTabsForUser();
-    };
-    document.getElementById('lockPass2').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockSubmit').click(); });
-  } else {
-    // login normal — usuário + senha
-    lockTitle.textContent = 'Acesso restrito';
-    lockSubtitle.textContent = 'Digite seu usuário e senha para entrar.';
-    lockFields.innerHTML = `
-      <div class="field"><input type="text" id="lockUser" placeholder="Usuário" autocomplete="username"></div>
-      <div class="field"><input type="password" id="lockPass" placeholder="Senha" autocomplete="current-password"></div>`;
-    document.getElementById('lockSubmit').textContent = 'Entrar';
-    document.getElementById('lockSubmit').onclick = async ()=>{
-      const user = document.getElementById('lockUser').value.trim().toLowerCase();
-      const p1 = document.getElementById('lockPass').value;
-      const conta = usuarios.find(u=>u.usuario.toLowerCase()===user);
-      if(conta && conta.hash && await hashText(p1)===conta.hash){ unlockSession(conta); renderTabsForUser(); }
-      else { lockError.textContent='Usuário ou senha incorretos.'; lockError.style.display='block'; }
-    };
-    lockReset.innerHTML = '';
-    document.getElementById('lockUser').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockPass').focus(); });
-    document.getElementById('lockPass').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockSubmit').click(); });
+  // Se já existe sessão Supabase ativa (mesmo navegador logou antes), entra direto
+  if(supa){
+    try{
+      const { data:{ session } } = await supa.auth.getSession();
+      if(session){
+        const conta = await garantirUsuarioAdminLocal(session.user.email);
+        unlockSession(conta);
+        renderTabsForUser();
+        await recarregarTudoPosLogin();
+        return;
+      }
+    }catch(e){}
   }
+
+  lockTitle.textContent = 'Acesso restrito';
+  lockSubtitle.textContent = 'Digite seu e-mail e senha para entrar.';
+  lockFields.innerHTML = `
+    <div class="field"><input type="email" id="lockUser" placeholder="E-mail" autocomplete="username"></div>
+    <div class="field"><input type="password" id="lockPass" placeholder="Senha" autocomplete="current-password"></div>`;
+  document.getElementById('lockSubmit').textContent = 'Entrar';
+  document.getElementById('lockSubmit').onclick = async ()=>{
+    const email = document.getElementById('lockUser').value.trim();
+    const pass = document.getElementById('lockPass').value;
+    lockError.style.display='none';
+    if(!email || !pass){ lockError.textContent='Preencha e-mail e senha.'; lockError.style.display='block'; return; }
+
+    if(supa){
+      let resultado;
+      try{
+        resultado = await supa.auth.signInWithPassword({ email, password: pass });
+      }catch(networkErr){
+        // Supabase inacessível (sem internet, etc.) — tenta fallback local
+        const usuariosLocais = JSON.parse(localStorage.getItem(LS_PREFIX+'usuarios')||'[]');
+        const conta = usuariosLocais.find(u=>(u.usuario||'').toLowerCase()===email.toLowerCase());
+        if(conta && conta.hash && await hashText(pass)===conta.hash){
+          unlockSession(conta); renderTabsForUser(); await recarregarTudoPosLogin(); return;
+        }
+        lockError.textContent='Sem conexão com o servidor. Verifique sua internet.'; lockError.style.display='block'; return;
+      }
+      if(!resultado.error && resultado.data.session){
+        const conta = await garantirUsuarioAdminLocal(resultado.data.session.user.email);
+        unlockSession(conta);
+        renderTabsForUser();
+        await recarregarTudoPosLogin();
+        return;
+      }
+      lockError.textContent = 'E-mail ou senha incorretos.';
+      lockError.style.display='block';
+      return;
+    }
+
+    // Supabase não carregou — modo local (compatibilidade)
+    const usuariosLocais = JSON.parse(localStorage.getItem(LS_PREFIX+'usuarios')||'[]');
+    const conta = usuariosLocais.find(u=>(u.usuario||'').toLowerCase()===email.toLowerCase());
+    if(conta && conta.hash && await hashText(pass)===conta.hash){
+      unlockSession(conta); renderTabsForUser(); await recarregarTudoPosLogin();
+    } else {
+      lockError.textContent='E-mail ou senha incorretos.'; lockError.style.display='block';
+    }
+  };
+  document.getElementById('lockUser').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockPass').focus(); });
+  document.getElementById('lockPass').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('lockSubmit').click(); });
 }
 
 // mostra/oculta as abas conforme as permissões do usuário logado
@@ -2861,8 +2922,8 @@ document.addEventListener('keydown', e=>{
   await setupLock();
   const userBadge = document.getElementById('userBadge');
   if(userBadge) userBadge.textContent = '';
-  document.getElementById('btnSair')?.addEventListener('click', ()=>{
-    // sessão não persistida
+  document.getElementById('btnSair')?.addEventListener('click', async ()=>{
+    if(supa){ try{ await supa.auth.signOut(); }catch(e){} }
     location.reload();
   });
   renderTabsForUser();
