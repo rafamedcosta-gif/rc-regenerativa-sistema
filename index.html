@@ -126,7 +126,6 @@
   .delta.up{color:var(--ok);} .delta.down{color:var(--bad);}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -172,24 +171,20 @@
 
 <script>
 /* ============ STORAGE HELPERS ============ */
-/* Conexão com o banco na nuvem (Supabase) */
-const RC_SUPABASE_URL = "https://rsnwdedbwukkucoyhfkt.supabase.co";
-const RC_SUPABASE_KEY = "sb_publishable_1-5STkG49tYt7y9GX7ixxw_F0k_pSDH";
-const sb = window.supabase.createClient(RC_SUPABASE_URL, RC_SUPABASE_KEY);
 const SHARED = true; // dados do negócio compartilhados entre quem acessa o sistema
 const LS_PREFIX = 'rc_estetica_';
+function hasClaudeStorage(){ return (typeof window!=='undefined') && window.storage && typeof window.storage.get==='function'; }
 async function sGet(key){
-  try{
-    const { data, error } = await sb.from('kv_store').select('value').eq('key', key).maybeSingle();
-    if(error) throw error;
-    return data ? data.value : null;
-  }catch(e){ console.error('Erro ao ler', key, e); return null; }
+  if(hasClaudeStorage()){
+    try{ const r = await window.storage.get(key, SHARED); return r ? JSON.parse(r.value) : null; }catch(e){ /* cai para localStorage */ }
+  }
+  try{ const v = localStorage.getItem(LS_PREFIX+key); return v ? JSON.parse(v) : null; }catch(e){ return null; }
 }
 async function sSet(key, value){
-  try{
-    const { error } = await sb.from('kv_store').upsert({ key, value, updated_at: new Date().toISOString() });
-    if(error) throw error;
-  }catch(e){ console.error('Erro ao salvar', key, e); alert('Não foi possível salvar na nuvem. Verifique sua conexão e se você continua logado.'); }
+  if(hasClaudeStorage()){
+    try{ await window.storage.set(key, JSON.stringify(value), SHARED); return; }catch(e){ /* cai para localStorage */ }
+  }
+  try{ localStorage.setItem(LS_PREFIX+key, JSON.stringify(value)); }catch(e){ console.error('storage set fail', key, e); }
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function agora(){ return new Date().toISOString(); }
@@ -527,8 +522,6 @@ function filtrarPacientes(q){
 function wireClientes(){
   document.getElementById('btnNovoCliente')?.addEventListener('click', ()=>{
     openModal(`<h3>Novo paciente</h3>
-      <div class="field"><label>Como cadastrar?</label><div style="display:flex; gap:8px; flex-wrap:wrap;"><button type="button" class="btn small" id="modoManualBtn" onclick="setModoCadastro('manual')">✍️ Manual</button><button type="button" class="btn ghost small" id="modoCodigoBtn" onclick="setModoCadastro('codigo')">📋 Código da ficha</button></div></div>
-      <div id="cadCodigoWrap" style="display:none;"><div class="field"><label>Código da ficha de anamnese</label><textarea id="mCliCodigo" rows="3" placeholder="Cole aqui o código ANA-... enviado pela paciente" style="font-family:monospace;"></textarea></div><button type="button" class="btn ghost small" onclick="lerCodigoCadastro()">Ler código e preencher</button><div id="cadCodigoMsg" style="font-size:.75rem; margin:6px 0;"></div></div>
       <div class="field"><label>Nome completo</label><input id="mCliNome"></div>
       <div class="field"><label>Telefone / WhatsApp</label><input id="mCliTel"></div>
       <div class="field"><label>E-mail</label><input id="mCliEmail"></div>
@@ -536,68 +529,14 @@ function wireClientes(){
       <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancelar</button><button class="btn" onclick="salvarCliente()">Salvar</button></div>`);
   });
 }
-let _cadFichaImportada = null;
-function decodeFichaCodigo(cod){
-  const partes = (cod||'').trim().split('|');
-  if(partes.length < 2) throw new Error('Codigo invalido');
-  const json = decodeURIComponent(escape(atob(partes[1])));
-  return JSON.parse(json);
-}
-function mapFichaToAnamnese(d, clienteId){
-  const mapGest = {'Não':'nao','Gestante':'sim','Amamentando':'sim','Possível':'talvez'};
-  return { id: uid(), clienteId,
-    profissao: d.profissao||'', historicoSaude: d.obs||'',
-    doencasCronicas: d.doencas||'', cirurgias: d.cirurgias||'',
-    medicamentos: d.medicamentos||'', alergias: d.alergias||'',
-    queixa: d.queixa||'', doencas: d.doencasPele||'',
-    gestante: mapGest[d.gestante]||'nao', tipoPele: d.tipoPele||'',
-    fototipo: (d.fototipo||'').split('—')[0].trim(), termo: 'sim',
-    fichaImportada: d, fichaImportadaEm: agora(), atualizadoEm: todayISO() };
-}
-function setModoCadastro(modo){
-  const wrap=document.getElementById('cadCodigoWrap');
-  const mBtn=document.getElementById('modoManualBtn');
-  const cBtn=document.getElementById('modoCodigoBtn');
-  if(!wrap) return;
-  if(modo==='codigo'){ wrap.style.display='block'; cBtn.classList.remove('ghost'); mBtn.classList.add('ghost'); }
-  else { wrap.style.display='none'; mBtn.classList.remove('ghost'); cBtn.classList.add('ghost'); _cadFichaImportada=null; }
-}
-function lerCodigoCadastro(){
-  const msg=document.getElementById('cadCodigoMsg');
-  try{
-    const d=decodeFichaCodigo(document.getElementById('mCliCodigo').value);
-    _cadFichaImportada=d;
-    if(d.nome) document.getElementById('mCliNome').value=d.nome;
-    if(d.tel) document.getElementById('mCliTel').value=d.tel;
-    if(d.email) document.getElementById('mCliEmail').value=d.email;
-    const r=[];
-    if(d.dataNasc) r.push('Nasc.: '+d.dataNasc);
-    if(d.cpf) r.push('CPF: '+d.cpf);
-    if(d.alergias) r.push('Alergias: '+d.alergias);
-    if(r.length) document.getElementById('mCliObs').value=r.join(' | ');
-    msg.style.color='var(--ok)';
-    msg.textContent='✅ Código lido! Confira os dados e clique em Salvar — a ficha de anamnese será preenchida sozinha.';
-  }catch(e){
-    _cadFichaImportada=null;
-    msg.style.color='var(--bad)';
-    msg.textContent='❌ Código inválido. Peça à paciente para gerar novamente.';
-  }
-}
 async function salvarCliente(){
   const nome = document.getElementById('mCliNome').value.trim();
   if(!nome){ toast('Informe o nome do paciente'); return; }
-  const _novoId = uid();
-  const _tinhaFicha = !!_cadFichaImportada;
-  DB.clientes.push({ id:_novoId, nome, telefone:document.getElementById('mCliTel').value.trim(),
+  DB.clientes.push({ id:uid(), nome, telefone:document.getElementById('mCliTel').value.trim(),
     email:document.getElementById('mCliEmail').value.trim(), observacoes:document.getElementById('mCliObs').value.trim(),
     criadoEm: todayISO() });
-  if(_cadFichaImportada){
-    DB.anamneses.push(mapFichaToAnamnese(_cadFichaImportada, _novoId));
-    await sSet('anamneses', DB.anamneses);
-    _cadFichaImportada = null;
-  }
   await sSet('clientes', DB.clientes);
-  closeModal(); render('clientes'); toast(_tinhaFicha ? 'Paciente e ficha de anamnese cadastrados' : 'Paciente cadastrado');
+  closeModal(); render('clientes'); toast('Paciente cadastrado');
 }
 async function excluirCliente(id){
   DB.clientes = DB.clientes.filter(c=>c.id!==id);
@@ -2825,53 +2764,8 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Escape') closeModal();
 });
 
-/* ============ ACESSO À NUVEM (SUPABASE) ============ */
-async function ensureSupabaseAuth(){
-  try{
-    const { data:{ session } } = await sb.auth.getSession();
-    if(session) return true;
-  }catch(e){ console.error(e); }
-  return await showSupabaseLogin();
-}
-function showSupabaseLogin(){
-  return new Promise(resolve=>{
-    const ov = document.createElement('div');
-    ov.id = 'sbLogin';
-    ov.style.cssText = 'position:fixed; inset:0; background:var(--bg); z-index:300; display:flex; align-items:center; justify-content:center; padding:20px;';
-    ov.innerHTML = `
-      <div class="card" style="max-width:360px; width:100%; text-align:center;">
-        <h3>Conectar à nuvem</h3>
-        <p class="sub" style="margin-bottom:14px;">Entre com seu e-mail e senha de acesso ao sistema.</p>
-        <div class="field"><input type="email" id="sbEmail" placeholder="E-mail" autocomplete="username"></div>
-        <div class="field"><input type="password" id="sbPass" placeholder="Senha" autocomplete="current-password"></div>
-        <div id="sbErr" style="color:var(--bad); font-size:.8rem; margin:6px 0; display:none;"></div>
-        <button class="btn" id="sbSubmit" style="width:100%; justify-content:center;">Entrar</button>
-      </div>`;
-    document.body.appendChild(ov);
-    const err = ov.querySelector('#sbErr');
-    const submit = ov.querySelector('#sbSubmit');
-    async function tryLogin(){
-      const email = ov.querySelector('#sbEmail').value.trim();
-      const pass = ov.querySelector('#sbPass').value;
-      submit.disabled = true; submit.textContent = 'Entrando...';
-      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-      if(error){
-        err.textContent = 'E-mail ou senha incorretos.'; err.style.display='block';
-        submit.disabled = false; submit.textContent = 'Entrar';
-        return;
-      }
-      ov.remove();
-      resolve(true);
-    }
-    submit.onclick = tryLogin;
-    ov.querySelector('#sbPass').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
-    ov.querySelector('#sbEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') ov.querySelector('#sbPass').focus(); });
-  });
-}
-
 /* ============ INIT ============ */
 (async function init(){
-  await ensureSupabaseAuth();
   await setupLock();
   const userBadge = document.getElementById('userBadge');
   if(userBadge) userBadge.textContent = '';
